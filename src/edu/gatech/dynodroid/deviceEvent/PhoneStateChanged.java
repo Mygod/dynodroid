@@ -1,37 +1,10 @@
 package edu.gatech.dynodroid.deviceEvent;
 
-import java.util.ArrayList;
-
 import edu.gatech.dynodroid.devHandler.ADevice;
 import edu.gatech.dynodroid.hierarchyHelper.DeviceActionPerformer;
-import edu.gatech.dynodroid.hierarchyHelper.IDeviceAction;
 import edu.gatech.dynodroid.utilities.Logger;
 
-public class PhoneStateChanged extends BroadCastAction implements IDeviceAction {
-
-	public PhoneStateChanged(String completeComponentName,
-			ArrayList<String> intFilter) throws Exception {
-		if (completeComponentName != null) {
-			this.targetComponentName = completeComponentName;
-			if (intFilter != null && intFilter.size() > 0) {
-				this.intentCategories.addAll(intFilter);
-			}
-		} else {
-			throw new Exception(
-					"Problem occured while creating PhoneStateChanged Action receiver");
-		}
-	}
-
-	@Override
-	public String getBroadCastAction() {
-		return "android.intent.action.PHONE_STATE";
-	}
-	
-	@Override
-	public BroadCastAction getInstance(String completeComponentName,ArrayList<String> intFilter) throws Exception {
-		return new PhoneStateChanged(completeComponentName, intFilter);
-	}
-
+public class PhoneStateChanged extends NonMonkeyEvent {
 	@Override
 	public boolean triggerAction(ADevice targetDevice,DeviceActionPerformer performer) {
 		String targetNumber = "6789077112";
@@ -59,4 +32,13 @@ public class PhoneStateChanged extends BroadCastAction implements IDeviceAction 
 		return false;
 	}
 
+	@Override
+	public int hashCode() {
+		return getClass().hashCode();
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		return o instanceof PhoneStateChanged;
+	}
 }

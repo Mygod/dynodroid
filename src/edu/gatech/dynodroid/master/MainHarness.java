@@ -13,13 +13,8 @@ import edu.gatech.dynodroid.RMIHelper.RMIBackEndServerImpl;
 import edu.gatech.dynodroid.RMIHelper.RMIHelper;
 import edu.gatech.dynodroid.appHandler.AndroidAppHandler;
 import edu.gatech.dynodroid.appHandler.ApkHandler;
-import edu.gatech.dynodroid.appHandler.AppSrcHandler;
-import edu.gatech.dynodroid.covHandler.CoverageHandler;
-import edu.gatech.dynodroid.covHandler.DummyCovHandler;
-import edu.gatech.dynodroid.covHandler.EmmaCoverageHandler;
 import edu.gatech.dynodroid.devHandler.ADevice;
 import edu.gatech.dynodroid.devHandler.ADeviceSetup;
-import edu.gatech.dynodroid.devHandler.DeviceEmulator;
 import edu.gatech.dynodroid.hierarchyHelper.LayoutExtractorFactory;
 import edu.gatech.dynodroid.hierarchyHelper.ViewServerLayoutExtractor;
 import edu.gatech.dynodroid.logMonitoring.LogMonitoring;
@@ -178,7 +173,6 @@ public class MainHarness {
 						newTestProfile.baseAppDir = app.getAbsolutePath();
 						newTestProfile.eventCount = PropertyParser.eventCountArray[i];
 						newTestProfile.sdkInstallPath = PropertyParser.sdkInstallPath;
-						newTestProfile.emmaLibPath = PropertyParser.emmaLibPath;
 						newTestProfile.testStrategy = RandomMonkeyTesting.randomTestingStrategy;
 						newTestProfile.baseWorkingDir = PropertyParser.baseWorkingDir
 								+ "/"
@@ -195,10 +189,6 @@ public class MainHarness {
                                                 newTestProfile.appStartUpDelay = PropertyParser.appStartUpDelay;
 						newTestProfile.delayBetweenEvents = PropertyParser.delayBetweenEvents;
 						newTestProfile.verboseLevel = PropertyParser.verboseLevel;
-						newTestProfile.coverageDumpTime = PropertyParser.coverageDumpTime;
-						newTestProfile.instrumetationSetupDir = PropertyParser.instrumentationHelperDir;
-						newTestProfile.coverageSamplingInterval = PropertyParser.coverageSamplingInterval;
-						newTestProfile.isApk = apkFileList.contains(app);
 						resultTestProfiles.add(newTestProfile);
 					}
 				}
@@ -211,7 +201,6 @@ public class MainHarness {
 							newTestProfile.appName = app.getName();
 							newTestProfile.baseAppDir = app.getAbsolutePath();
 							newTestProfile.sdkInstallPath = PropertyParser.sdkInstallPath;
-							newTestProfile.emmaLibPath = PropertyParser.emmaLibPath;
 							newTestProfile.testStrategy = WidgetBasedTesting.widgetBasedTestingStrategy;
 							newTestProfile.maxNoOfWidgets = PropertyParser.maxNoOfWidgets[i];
 							newTestProfile.baseWorkingDir = PropertyParser.baseWorkingDir
@@ -230,11 +219,7 @@ public class MainHarness {
 							newTestProfile.responseDelay = PropertyParser.responseDelay;
 							newTestProfile.delayBetweenEvents = PropertyParser.delayBetweenEvents;
 							newTestProfile.verboseLevel = PropertyParser.verboseLevel;
-							newTestProfile.coverageDumpTime = PropertyParser.coverageDumpTime;
-							newTestProfile.instrumetationSetupDir = PropertyParser.instrumentationHelperDir;
 							newTestProfile.widgetSelectionStrategy = childStrategy;
-							newTestProfile.coverageSamplingInterval = PropertyParser.coverageSamplingInterval;
-							newTestProfile.isApk = apkFileList.contains(app);
 							resultTestProfiles.add(newTestProfile);
 						}
 					}
@@ -253,7 +238,6 @@ class TestProfileHandler implements Runnable {
 	ADevice targetDevice;
 	TestStrategy targetTestStrategy = null;
 	AndroidAppHandler targetAppHandler = null;
-	CoverageHandler targetCoverageHandler = null;
 	private String resultString = "";
 
 	private static synchronized int getNextPortNumber() {
@@ -270,8 +254,6 @@ class TestProfileHandler implements Runnable {
 	private HashMap<String, String> getPropertiesMap(String stra) {
 		HashMap<String, String> retVal = new HashMap<String, String>();
 		if (stra.equals(RandomMonkeyTesting.randomTestingStrategy)) {
-			retVal.put(TestStrategy.appCoverageDumpTimeProperty,
-					Integer.toString(targetTestProfile.coverageDumpTime));
 			retVal.put(TestStrategy.appStartUpTimeProperty,
 					Long.toString(targetTestProfile.appStartUpDelay));
 			retVal.put(TestStrategy.workDirPropertyName,
@@ -296,8 +278,6 @@ class TestProfileHandler implements Runnable {
 					Long.toString(targetTestProfile.delayBetweenEvents));
 		}
 		if (stra.equals(WidgetBasedTesting.widgetBasedTestingStrategy)) {
-			retVal.put(TestStrategy.appCoverageDumpTimeProperty,
-					Integer.toString(targetTestProfile.coverageDumpTime));
 			retVal.put(TestStrategy.appStartUpTimeProperty,
 					Long.toString(targetTestProfile.appStartUpDelay));
 			retVal.put(TestStrategy.workDirPropertyName,
@@ -323,19 +303,15 @@ class TestProfileHandler implements Runnable {
 					.equals(RandomMonkeyTesting.randomTestingStrategy)) {
 				retVal = new RandomMonkeyTesting(
 						targetDevice,
-						targetCoverageHandler,
 						targetAppHandler,
-						getPropertiesMap(RandomMonkeyTesting.randomTestingStrategy),
-						this.targetTestProfile.coverageSamplingInterval);
+						getPropertiesMap(RandomMonkeyTesting.randomTestingStrategy));
 			}
 			if (this.targetTestProfile.testStrategy
 					.equals(WidgetBasedTesting.widgetBasedTestingStrategy)) {
 				retVal = new WidgetBasedTesting(
 						targetDevice,
-						targetCoverageHandler,
 						targetAppHandler,
-						getPropertiesMap(WidgetBasedTesting.widgetBasedTestingStrategy),
-						this.targetTestProfile.coverageSamplingInterval);
+						getPropertiesMap(WidgetBasedTesting.widgetBasedTestingStrategy));
 			}
 		} catch (Exception e) {
 			Logger.logException(e);
@@ -361,7 +337,7 @@ class TestProfileHandler implements Runnable {
 				Thread.sleep(2000);
 			}
 
-			while ((targetDevice = DeviceEmulator.getFreeEmulator()) == null) {
+			while ((targetDevice = ADevice.getFreeDevice()) == null) {
 				this.profileLogger.logInfo(this.targetTestProfile.appName,
 						this.targetTestProfile.appName
 								+ " waiting for free device..");
@@ -369,17 +345,9 @@ class TestProfileHandler implements Runnable {
 			}
 			this.profileLogger.logInfo(this.targetTestProfile.appName,
 					"Got Device:" + targetDevice.getDeviceName());
-			if (!this.targetTestProfile.isApk) {
-				this.targetAppHandler = new AppSrcHandler(
-						this.targetTestProfile.baseAppDir, targetDevice,
-						targetTestProfile.instrumetationSetupDir,
-						targetTestProfile.baseWorkingDir + "/AppHandler");
-			} else {
-				this.targetAppHandler = new ApkHandler(
-						this.targetTestProfile.baseAppDir, targetDevice,
-						targetTestProfile.instrumetationSetupDir,
-						targetTestProfile.baseWorkingDir + "/AppHandler");
-			}
+			this.targetAppHandler = new ApkHandler(
+					this.targetTestProfile.baseAppDir, targetDevice,
+					targetTestProfile.baseWorkingDir + "/AppHandler");
 			synchronized (MainHarness.builtApps) {
 				isAppAlreadyBuilt = MainHarness.builtApps
 						.contains(this.targetTestProfile.appName);
@@ -404,7 +372,7 @@ class TestProfileHandler implements Runnable {
 				}
 				buildSucessfull = targetAppHandler.instrumentApp()
 						&& targetAppHandler
-								.buildApp(AppSrcHandler.instrumentBuild);
+								.buildApp(AndroidAppHandler.instrumentBuild);
 				synchronized (MainHarness.builtApps) {
 					MainHarness.builtApps.add(this.targetTestProfile.appName);
 				}
@@ -420,14 +388,6 @@ class TestProfileHandler implements Runnable {
 			if (!buildSucessfull) {
 				this.profileLogger.logError("", "Build Ussucessfull..Exiting");
 				return;
-			}
-			if (!targetTestProfile.isApk) {
-				this.targetCoverageHandler = new EmmaCoverageHandler(
-						targetTestProfile.baseAppDir + "/coverage.em",
-						targetTestProfile.baseWorkingDir + "/coverageHandler",
-						targetTestProfile.emmaLibPath);
-			} else {
-				this.targetCoverageHandler = new DummyCovHandler();
 			}
 
 			this.targetTestStrategy = getTestStrategy();
@@ -462,8 +422,6 @@ class TestProfileHandler implements Runnable {
 			if (this.targetDevice != null) {
 
 				// Clean up
-
-				LogMonitoring.releaseLogs(this.targetDevice);
 
 				LayoutExtractorFactory.deleteCache(targetDevice);
 

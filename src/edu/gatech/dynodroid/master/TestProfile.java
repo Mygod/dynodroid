@@ -14,16 +14,11 @@ public class TestProfile {
 	public long responseDelay = 3000;
         public long appStartUpDelay = 8000;
 	public String sdkInstallPath = null;
-	public int coverageDumpTime = 4000;
 	public String baseAppDir = "";
 	public int maxNoOfWidgets = 10000;
-	public String emmaLibPath = null;
 	public String testStrategy = "";
 	public String appName = "";
-	public int coverageSamplingInterval = 100;
-	public String instrumetationSetupDir = null;
 	public String widgetSelectionStrategy = "GraphBased";
-	public boolean isApk = false;
 	public String targetEmailAlias = null;
 	public UUID requestUUID = null;
 	

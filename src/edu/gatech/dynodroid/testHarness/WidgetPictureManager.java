@@ -23,7 +23,7 @@ import edu.gatech.dynodroid.utilities.FileUtilities;
 public class WidgetPictureManager {
     private String widgetPictureLocation;
     private String screenLocation;
-    private HashMap<Integer, String> processedWidgets = new HashMap<Integer, String>();
+    private HashMap<String, String> processedWidgets = new HashMap<>();
     private static final int ignoreUniqueID = -1;
     private DeviceActionPerformer performer = null;
 	
@@ -47,10 +47,10 @@ public class WidgetPictureManager {
             if(targetView.inScreen != null) {
                 takeCompletePicture(targetView.inScreen, device, runs);
             }
-            if(targetView.nativeObject.uniqueViewID != ignoreUniqueID && !processedWidgets.containsKey(targetView.nativeObject.uniqueViewID)){
+            if("NO_ID".equals(targetView.nativeObject.id) && !processedWidgets.containsKey(targetView.nativeObject.id)){
                 String fileName = 
                     this.widgetPictureLocation + "/" +
-                    Integer.toString(targetView.nativeObject.uniqueViewID) + 
+                    targetView.nativeObject.id +
                     (targetView.inScreen == null ? "" : 
                      "_" + runs + targetView.inScreen.hashCode()) + ".png";
 
@@ -60,13 +60,13 @@ public class WidgetPictureManager {
                                                           targetView.features.absTop+targetView.features.absHeight,
                                                           fileName),
                                         null);
-                processedWidgets.put(targetView.nativeObject.uniqueViewID, fileName);
+                processedWidgets.put(targetView.nativeObject.id, fileName);
                 retVal = true;
 
-            } else if(processedWidgets.containsKey(targetView.nativeObject.uniqueViewID) && targetView.inScreen != null) {
-                String origFile = processedWidgets.get(targetView.nativeObject.uniqueViewID);
+            } else if(processedWidgets.containsKey(targetView.nativeObject.id) && targetView.inScreen != null) {
+                String origFile = processedWidgets.get(targetView.nativeObject.id);
                 String destFile = this.widgetPictureLocation + "/" +
-                    Integer.toString(targetView.nativeObject.uniqueViewID) + 
+                    targetView.nativeObject.id +
                     (targetView.inScreen == null ? "" : 
                      "_" + runs + targetView.inScreen.hashCode()) + ".png";
                 String command = "cp " + origFile + " " + destFile;

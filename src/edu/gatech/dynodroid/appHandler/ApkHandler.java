@@ -29,12 +29,11 @@ public class ApkHandler extends AndroidAppHandler {
 	private String apkExtractDir = null;
 	private AndroidManifestParser manParser = null;
 
-	public ApkHandler(String apkPath, ADevice targetDevice, String setupDir,
+	public ApkHandler(String apkPath, ADevice targetDevice,
 			String workDir) throws FileNotFoundException,
 			InvalidAttributesException {
 		assert (apkPath != null && (new File(apkPath)).exists());
 		assert (targetDevice != null);
-		assert (setupDir != null);
 		assert (workDir != null);
 
 		if (apkPath == null || !(new File(apkPath)).exists()) {
@@ -49,8 +48,7 @@ public class ApkHandler extends AndroidAppHandler {
 		this.apkFilePath = new File(apkPath);
 		this.apkExtractDir = workDir + "/ApkExtractDir";
 		String output = ExecHelper.RunProgram("java -jar "
-				+ PropertyParser.apkToolLocation + " -q d -s -f " + apkPath + " "
-				+ this.apkExtractDir, true);
+				+ PropertyParser.apkToolLocation + " d -qfso " + this.apkExtractDir + ' ' + apkPath, true);
 
 		if (!(new File(this.apkExtractDir + "/AndroidManifest.xml")).exists()) {
 			if (output != null) {

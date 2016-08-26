@@ -47,17 +47,13 @@ public class GraphBasedSelectionStrategy extends WidgetSelectionStrategy {
 	private HashSet<ViewScreen> blackListedNodes = new HashSet<ViewScreen>();
 	private ViewScreen currentFocusedScreen = null;
 	private int totalNumberOfActions = 0;
-	private int coverageGranularity = 100;
 
-	public GraphBasedSelectionStrategy(String workingDir,int covSamInterval) throws Exception {
+	public GraphBasedSelectionStrategy(String workingDir) throws Exception {
 		this.currWorkingDir = workingDir;
 		FileUtilities.createDirectory(currWorkingDir);
 		this.textLogger = new TextLogger(this.currWorkingDir
 				+ "/GraphBasedSelection.log");
 		this.targetScreenGraph = new ScreenGraph();
-		if(covSamInterval > 0){
-			this.coverageGranularity = covSamInterval;
-		}
 	}
 
 	/*
@@ -72,6 +68,7 @@ public class GraphBasedSelectionStrategy extends WidgetSelectionStrategy {
 	@Override
 	public synchronized Pair<ViewElement, IDeviceAction> getNextElementAction(
 			ViewScreen currScreen,
+			HashSet<Pair<ViewElement, IDeviceAction>> nonUIActions,
 			Pair<ViewElement, IDeviceAction> lastActionPerformed,
 			boolean resultOfLastOperation) {
 
@@ -357,11 +354,6 @@ public class GraphBasedSelectionStrategy extends WidgetSelectionStrategy {
 	}
 
 	@Override
-	public boolean needDumpCoverage() {
-		return ((this.totalNumberOfActions % this.coverageGranularity) == 0);
-	}
-
-	@Override
 	public void cleanUp() {
 		this.textLogger.logInfo(LogPrefix, "Completly Visited Screens:");
 		String visitedScreens = "";
@@ -377,18 +369,6 @@ public class GraphBasedSelectionStrategy extends WidgetSelectionStrategy {
 		this.textLogger.logInfo(LogPrefix, visitedScreens);
 		this.targetScreenGraph.dumpGraphStats(this.textLogger);
 
-	}
-
-	@Override
-	public void addNonUiDeviceAction(Pair<ViewElement, IDeviceAction> action) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void removeNonUiDeviceAction(Pair<ViewElement, IDeviceAction> action) {
-		// TODO Auto-generated method stub
-		
 	}
 
 }

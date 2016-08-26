@@ -1,24 +1,9 @@
 package edu.gatech.dynodroid.deviceEvent;
 
-import java.util.ArrayList;
-
 import edu.gatech.dynodroid.devHandler.ADevice;
 import edu.gatech.dynodroid.hierarchyHelper.DeviceActionPerformer;
-import edu.gatech.dynodroid.hierarchyHelper.IDeviceAction;
 
-public class SmsReceived extends BroadCastAction implements IDeviceAction {	
-	
-	public SmsReceived(String completeComponentName,ArrayList<String> intFilter) throws Exception{
-		if(completeComponentName != null){
-			this.targetComponentName = completeComponentName;
-			if(intFilter != null && intFilter.size() > 0){
-				this.intentCategories.addAll(intFilter);
-			}
-		} else{
-			throw new Exception("Problem occured while creating SmsReceived Action receiver");
-		}
-	}
-
+public class SmsReceived extends NonMonkeyEvent {
 	@Override
 	public boolean triggerAction(ADevice targetDevice,DeviceActionPerformer performer) {
 		if(targetDevice != null){
@@ -26,15 +11,14 @@ public class SmsReceived extends BroadCastAction implements IDeviceAction {
 		}
 		return false;
 	}
-	
-	@Override
-	public BroadCastAction getInstance(String completeComponentName,ArrayList<String> intFilter) throws Exception {
-		return new SmsReceived(completeComponentName, intFilter);
-	}
-	
-	@Override
-	public String getBroadCastAction(){
-		return "android.provider.Telephony.SMS_RECEIVED";
-	}
 
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof SmsReceived;
+    }
 }

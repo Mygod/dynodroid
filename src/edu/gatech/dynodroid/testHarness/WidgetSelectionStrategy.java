@@ -8,6 +8,8 @@ import edu.gatech.dynodroid.hierarchyHelper.ViewElement;
 import edu.gatech.dynodroid.hierarchyHelper.ViewScreen;
 import edu.gatech.dynodroid.utilities.Pair;
 
+import java.util.HashSet;
+
 /**
  * @author machiry
  *
@@ -21,7 +23,9 @@ public abstract class WidgetSelectionStrategy {
 	 * @param resultOfLastOperation Result of last operation performed (true/false)
 	 * @return Pair of Widget and the action to be performed on it
 	 */
-	public abstract Pair<ViewElement,IDeviceAction> getNextElementAction(ViewScreen currScreen,Pair<ViewElement,IDeviceAction> lastPerformedAction,boolean resultOfLastOperation);
+	public abstract Pair<ViewElement,IDeviceAction> getNextElementAction(
+			ViewScreen currScreen, HashSet<Pair<ViewElement, IDeviceAction>> nonUIActions,
+			Pair<ViewElement,IDeviceAction> lastPerformedAction, boolean resultOfLastOperation);
 	
 	/***
 	 * This method is used to notify the strategy about the new screen that popped up and which 
@@ -50,20 +54,9 @@ public abstract class WidgetSelectionStrategy {
 	public abstract boolean areScreensSame(ViewScreen scr1,ViewScreen scr2);
 	
 	/***
-	 * This method is used to check if coverage need to be collected or not
-	 * @return true/false depending on whether the coverage is required or not
-	 */
-	public abstract boolean needDumpCoverage();
-	
-	/***
 	 * This will do cleanup tasks
 	 */
 	public abstract void cleanUp();
-	
-	
-	public abstract void addNonUiDeviceAction(Pair<ViewElement,IDeviceAction> action);
-	
-	public abstract void removeNonUiDeviceAction(Pair<ViewElement,IDeviceAction> action);
 	
 	/***
 	 * This method indicates whether a new folder needs to be created for each

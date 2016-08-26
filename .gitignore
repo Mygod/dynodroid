@@ -1,4 +1,4 @@
-# Created by .ignore support plugin (hsz.mobi)
+M3StartAppProcess# Created by .ignore support plugin (hsz.mobi)
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -179,9 +179,10 @@ fabric.properties
 .mtj.tmp/
 
 # Package Files #
-*.jar
 *.war
 *.ear
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+test/

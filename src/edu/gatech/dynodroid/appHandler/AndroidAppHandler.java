@@ -3,7 +3,12 @@ package edu.gatech.dynodroid.appHandler;
 import edu.gatech.dynodroid.devHandler.ADevice;
 
 public abstract class AndroidAppHandler {
-	
+	public static final String debugInstall = "installd";
+	public static final String instrumentInstall = "installi";
+
+	public static final String debugBuild = "debug";
+	public static final String instrumentBuild = "instrument";
+
 	/***
 	 * This method sets the device on which the app handler needs to
 	 * perform all its default activities
@@ -71,30 +76,6 @@ public abstract class AndroidAppHandler {
 	 * @return true/false on success or failure respectively 
 	 */
 	public boolean buildApp(String type){
-		return true;
-	}
-	
-	/***
-	 * This method gets the intermediate coverage file (coverage.em) for the App
-	 * Here the App Handler can use different mechanism to get teh coverage file
-	 * one simple way if to send SMS and have the handler dump the coverage file 
-	 * @param targetPath the path under which the coverage file needs to be stored
-	 * @param coverageDumpWaitTime time in milliseconds that needs to wait for coverage to complete
-	 * @return true/false on success or failure respectively
-	 */
-	public boolean getIntermediateCoverage(String targetPath,long coverageDumpWaitTime){
-		return true;
-	}
-	
-	/***
-	 * This method gets the final coverage file (coverage.em) for the app
-	 * App handler can use different mechanism to collect the final coverage file
-	 * Eg: by using activity manager (i.e am ) or just exiting the app and having finish listener dump the coverage file 
-	 * @param targetPath the path under which the coverage file needs to be stored
-	 * @param coverageDumpWaitTime time in milliseconds that needs to wait for coverage to complete
-	 * @return true/false on success or failure respectively 
-	 */
-	public boolean getFinalCoverage(String targetPath,long coverageDumpWaitTime){
 		return true;
 	}
 	

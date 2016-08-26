@@ -8,33 +8,12 @@ import edu.gatech.dynodroid.hierarchyHelper.DeviceActionPerformer;
 
 public class KeyEvent extends NonMonkeyEvent {
 	
-	int targetKeyCode = 0;	
-	String callBackName = null;
+	int targetKeyCode;
 	private static final Integer[] mediaButtonsI = new Integer[]{128,129,90,87,127,126,85,88,130,89,86};
 	
 	public static final ArrayList<Integer> mediaButtons = new ArrayList<Integer>(Arrays.asList(mediaButtonsI));
 	
-	public KeyEvent(String callBackName,int keyCode){
-		this.targetKeyCode = keyCode;
-		this.callBackName = callBackName;
-	}
-
-	@Override
-	public ArrayList<String> getMonkeyCommand() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public String actionName() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public String getCallBackName() {
-		// TODO Auto-generated method stub
-		return this.callBackName;
+	public KeyEvent() {
 	}
 
 	@Override
@@ -45,7 +24,6 @@ public class KeyEvent extends NonMonkeyEvent {
 			if(output == null || output.size() == 0){
 				return true;
 			}
-			
 		}		
 		return false;
 		
@@ -54,9 +32,9 @@ public class KeyEvent extends NonMonkeyEvent {
 	@Override
 	public int hashCode(){
 		if(mediaButtons.contains(targetKeyCode)){
-			return "MediaButton".hashCode() ^ this.callBackName.hashCode();
+			return "MediaButton".hashCode();
 		}
-		return Integer.valueOf(targetKeyCode).hashCode() ^ this.callBackName.hashCode();		
+		return Integer.valueOf(targetKeyCode).hashCode();
 	}
 	
 	@Override
@@ -64,12 +42,10 @@ public class KeyEvent extends NonMonkeyEvent {
 		if(o instanceof KeyEvent){
 			KeyEvent that = (KeyEvent)o;
 			if(mediaButtons.contains(this.targetKeyCode) || mediaButtons.contains(that.targetKeyCode)){
-				return mediaButtons.contains(this.targetKeyCode) && mediaButtons.contains(that.targetKeyCode) && this.callBackName.equals(that.callBackName);
+				return mediaButtons.contains(this.targetKeyCode) && mediaButtons.contains(that.targetKeyCode);
 			}			
-			return this.targetKeyCode == that.targetKeyCode && this.callBackName.equals(that.callBackName);
+			return this.targetKeyCode == that.targetKeyCode;
 		}
 		return false;
 	}
-	
-
 }

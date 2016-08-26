@@ -48,7 +48,7 @@ public class ViewElement {
 	@Override
 	public String toString() {
 		if(nativeObject != null){
-			return nativeObject.uniqueViewID+(inScreen == null ? "":"_0"+inScreen.hashCode()) +":"+features.toString();
+			return nativeObject.id+(inScreen == null ? "":"_0"+inScreen.hashCode()) +":"+features.toString();
 		}
 		return "-1"+":"+features.toString();
 	}

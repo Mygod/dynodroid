@@ -16,6 +16,9 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import edu.gatech.dynodroid.android.AuthorityEntry;
+import edu.gatech.dynodroid.android.BroadcastFilter;
+import edu.gatech.dynodroid.android.PatternMatcher;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -41,7 +44,7 @@ public class AndroidManifestParser {
 	private String instrumentationInfo;
 	private ArrayList<String> allActivities = null;
 	private ArrayList<String> allServices = null;
-	private ArrayList<BroadCastReceiver> allReceivers = null;
+	private ArrayList<BroadcastReceiver> allReceivers = null;
 
 	// Private Static Fields
 	private final static String manifestTagName = "manifest";
@@ -50,6 +53,7 @@ public class AndroidManifestParser {
 	private final static String intentFilterTagName = "intent-filter";
 	private final static String actionTagName = "action";
 	private final static String categoryTagName = "category";
+	private final static String dataTagName = "data";
 	private final static String serviceTagName = "service";
 	private final static String receiverTagName = "receiver";
 	private final static String androidNameAttribute = "android:name";
@@ -174,13 +178,13 @@ public class AndroidManifestParser {
 	
 	/***
 	 * This method returns all the receiver components present in apps Manifest.
-	 * @return An ArrayList of all receiver components in form of BroadCastReceiver  objects
+	 * @return An ArrayList of all receiver components in form of BroadcastReceiver  objects
 	 * 
-	 *  @see edu.gatech.dynodroid.appHandler.BroadCastReceiver
+	 *  @see BroadcastReceiver
 	 */
-	public ArrayList<BroadCastReceiver> getAllBroadcastReceivers() {
+	public ArrayList<BroadcastReceiver> getAllBroadcastReceivers() {
 		if (this.allReceivers == null) {
-			this.allReceivers = new ArrayList<BroadCastReceiver>();
+			this.allReceivers = new ArrayList<>();
 			getAppPackage();
 			try {
 				DocumentBuilder builder = DocumentBuilderFactory.newInstance()
@@ -188,18 +192,19 @@ public class AndroidManifestParser {
 				Document doc = builder.parse(manifestFile);
 				NodeList nodes = doc.getElementsByTagName(receiverTagName);
 				for (int i = 0; i < nodes.getLength(); i++) {
-					BroadCastReceiver currentReceiver = new BroadCastReceiver();
+					BroadcastReceiver currentReceiver = new BroadcastReceiver();
 					Element receiverElement = (Element) nodes.item(i);
 					Node currentReceiverNode = nodes.item(i);
 					String receiverName = receiverElement
 							.getAttribute(androidNameAttribute);
-					if (receiverName.startsWith(".")) {
-						receiverName = this.appPackage + receiverName;
-					} else if (!receiverName.contains(".")) {
-						receiverName = this.appPackage + "." + receiverName;
-					}
+					// TODO: I should probably remove these
+//					if (receiverName.startsWith(".")) {
+//						receiverName = this.appPackage + receiverName;
+//					} else if (!receiverName.contains(".")) {
+//						receiverName = this.appPackage + "." + receiverName;
+//					}
 
-					currentReceiver.receiverComponentName = receiverName;
+					currentReceiver.componentName = receiverName;
 
 					for (int j = 0; j < currentReceiverNode.getChildNodes()
 							.getLength(); j++) {
@@ -207,7 +212,7 @@ public class AndroidManifestParser {
 						Node intentFilterNode = currentReceiverNode
 								.getChildNodes().item(j);
 						if (isNodeOfType(intentFilterNode, intentFilterTagName)) {
-							IntentFilter currentIntentFilter = new IntentFilter();
+							BroadcastFilter currentIntentFilter = new BroadcastFilter();
 							for (int k = 0; k < intentFilterNode
 									.getChildNodes().getLength(); k++) {
 								Node currentIntentChildNode = intentFilterNode
@@ -215,20 +220,49 @@ public class AndroidManifestParser {
 								if (isNodeOfType(currentIntentChildNode,
 										actionTagName)) {
 									Element currentIntentChildElement = (Element) currentIntentChildNode;
-									currentIntentFilter.intentActions
+									currentIntentFilter.actions
 											.add(currentIntentChildElement
 													.getAttribute(androidNameAttribute));
 								}
 								if (isNodeOfType(currentIntentChildNode,
 										categoryTagName)) {
 									Element currentIntentChildElement = (Element) currentIntentChildNode;
-									currentIntentFilter.intentCategory
+									currentIntentFilter.categories
 											.add(currentIntentChildElement
 													.getAttribute(androidNameAttribute));
 								}
+								if (isNodeOfType(currentIntentChildNode, dataTagName)) {
+									Element currentIntentChildElement = (Element) currentIntentChildNode;
+									if (currentIntentChildElement.hasAttribute("android:scheme"))
+										currentIntentFilter.schemes.add(currentIntentChildElement.getAttribute("android:scheme"));
+									if (currentIntentChildElement.hasAttribute("android:host")) {
+										String host = currentIntentChildElement.getAttribute("android:host");
+										boolean wild = host.startsWith("*");
+										if (wild) host = host.substring(1);
+										int port = -1;
+										try {
+											port = Integer.parseInt(currentIntentChildElement.getAttribute("android:port"));
+										} catch (NumberFormatException ignore) { }
+										currentIntentFilter.authorities.add(new AuthorityEntry(host, port, wild));
+									}
+									if (currentIntentChildElement.hasAttribute("android:path"))
+										currentIntentFilter.paths.add(new PatternMatcher(currentIntentChildElement.getAttribute("android:path"), PatternMatcher.PATTERN_LITERAL));
+									if (currentIntentChildElement.hasAttribute("android:pathPrefix"))
+										currentIntentFilter.paths.add(new PatternMatcher(currentIntentChildElement.getAttribute("android:pathPrefix"), PatternMatcher.PATTERN_PREFIX));
+									if (currentIntentChildElement.hasAttribute("android:pathPattern"))
+										currentIntentFilter.paths.add(new PatternMatcher(currentIntentChildElement.getAttribute("android:pathPattern"), PatternMatcher.PATTERN_SIMPLE_GLOB));
+									if (currentIntentChildElement.hasAttribute("android:ssp"))
+										currentIntentFilter.ssps.add(new PatternMatcher(currentIntentChildElement.getAttribute("android:ssp"), PatternMatcher.PATTERN_LITERAL));
+									if (currentIntentChildElement.hasAttribute("android:sspPrefix"))
+										currentIntentFilter.ssps.add(new PatternMatcher(currentIntentChildElement.getAttribute("android:sspPrefix"), PatternMatcher.PATTERN_PREFIX));
+									if (currentIntentChildElement.hasAttribute("android:sspPattern"))
+										currentIntentFilter.ssps.add(new PatternMatcher(currentIntentChildElement.getAttribute("android:sspPattern"), PatternMatcher.PATTERN_SIMPLE_GLOB));
+									if (currentIntentChildElement.hasAttribute("android:mimeType"))
+										currentIntentFilter.types.add(currentIntentChildElement.getAttribute("android:mimeType"));
+								}
 
 							}
-							currentReceiver.intentFilters
+							currentReceiver.filters
 									.add(currentIntentFilter);
 
 						}
@@ -502,7 +536,7 @@ public class AndroidManifestParser {
 				+ ((this.allReceivers == null || this.allReceivers.size() == 0) ? "No Receivers\n"
 						: "\n");
 		if (this.allReceivers != null) {
-			for (BroadCastReceiver s : this.allReceivers) {
+			for (BroadcastReceiver s : this.allReceivers) {
 				retVal += "\t" + s.toString() + "\n";
 			}
 		}

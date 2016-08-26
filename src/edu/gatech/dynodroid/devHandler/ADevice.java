@@ -1,17 +1,9 @@
-/**
- * 
- */
 package edu.gatech.dynodroid.devHandler;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 
-import com.android.ddmlib.AndroidDebugBridge;
-import com.android.ddmlib.IDevice;
+import com.android.ddmlib.*;
 
-import edu.gatech.dynodroid.clients.MonitoringClient;
-import edu.gatech.dynodroid.master.PropertyParser;
-import edu.gatech.dynodroid.utilities.ExecHelper;
 import edu.gatech.dynodroid.utilities.Logger;
 
 /**
@@ -22,89 +14,55 @@ import edu.gatech.dynodroid.utilities.Logger;
  * @author machiry
  * 
  */
-public abstract class ADevice {
+public class ADevice {
 
-	//private static List<String> assignedDevices = new ArrayList<String>();
-	private static HashMap<String, EmulatorInstance> knownEmulators = new HashMap<String, EmulatorInstance>();
+	private static final HashMap<String, ADevice> assignedDevices = new HashMap<>();
 
 	/**
 	 * This is the lock object to access all the static objects Access to all
 	 * static objects should be guarded by this object
 	 */
-	private static Object sSync = new Object();
-	protected static boolean adbInitialized = false;
-	protected static AndroidDebugBridge adbBridge = null;
+	private static final Object sSync = new Object();
+	private static boolean adbInitialized = false;
+	private static AndroidDebugBridge adbBridge = null;
 
 	/***
 	 * This method gets the name of the free device that can be used for testing
 	 * 
 	 * @return name of the free device
 	 */
-	public static String getFreeDevice() {
+	public static ADevice getFreeDevice() {
 		ADeviceSetup.isInitialized();
 		initializeBridge();
 		synchronized (sSync) {
 
-			String freeDevice = null;
-
 			// get the current devices and return the device that is not
 			// assigned
 			IDevice[] recognizedDevices = adbBridge.getDevices();
-			/*if (recognizedDevices != null) {
+			if (recognizedDevices != null) {
 				for (IDevice currDev : recognizedDevices) {
 					if (currDev.isOnline()
-							&& !assignedDevices.contains(currDev.toString())) {
-						assignedDevices.add(currDev.toString());
-						freeDevice = currDev.toString();
-						break;
-					}
-				}
-			}*/
-
-			if (recognizedDevices != null
-					&& recognizedDevices.length < PropertyParser.maxNoOfEmulators) {
-				synchronized (knownEmulators) {
-					EmulatorInstance temp = EmulatorInstance.getNewEmulator();
-					if (temp == null) {
-						Logger.logError("Unable to create new emulators");
-					} else {
-						if (temp.getEmuName() != null) {
-							knownEmulators.put(temp.getEmuName(), temp);
-							//assignedDevices.add(temp.getEmuName());
-
-							freeDevice = temp.getEmuName();
-						} else {
-							Logger.logInfo("Problem occured while trying to get the emulator name");
-						}
+							&& !assignedDevices.containsKey(currDev.toString())) {
+						ADevice result = new ADevice(currDev);
+						assignedDevices.put(currDev.toString(), result);
+						return result;
 					}
 				}
 			}
 
-			return freeDevice;
+			return null;
 
 		}
-	}
-	
-	public static synchronized boolean hasFreeDevices(){
-		IDevice[] recognizedDevices = adbBridge.getDevices();
-		return recognizedDevices != null
-				&& recognizedDevices.length < PropertyParser.maxNoOfEmulators;
 	}
 
 	public static LogCatObserver getLogCatObserver(String devName) {
 		if (devName != null) {
-			synchronized (knownEmulators) {
-				if (knownEmulators.containsKey(devName)) {
-					return knownEmulators.get(devName).getLogCatObserver();
-				}
+			synchronized (assignedDevices) {
+				if (assignedDevices.containsKey(devName)) return assignedDevices.get(devName).getLogCatObserver();
 			}
 
 		}
 		return null;
-	}
-
-	public static AndroidDebugBridge getAbdBridge() {
-		return adbBridge;
 	}
 
 	private static boolean initializeBridge() {
@@ -158,103 +116,28 @@ public abstract class ADevice {
 		}
 	}
 
-	protected static void releaseDevice(String deviceName) {
-		/*synchronized (sSync) {
-			assignedDevices.remove(deviceName);
-		}*/
+	private IDevice androidDevice = null;
+	private static final int defaultShellCommandTimeOut = 10000;
+	private String deviceName;
+
+	//Just to be on safer side we limit defaults to more than maximum values
+	//TODO: this is definitely not right
+	public static final int maxEmulatorWidth = 500;
+	public static final int maxEmulatorHeight = 1000;
+
+	private LogCatObserver targetLogCatObserver = null;
+
+	public ADevice(IDevice device) {
+		androidDevice = device;
+		this.deviceName = device.toString();
+		if (deviceName != null && this.targetLogCatObserver == null) {
+			this.targetLogCatObserver = new LogCatObserver(deviceName);
+		}
+		this.targetLogCatObserver.startMonitoring();
 	}
 
-	protected static void destroyDevice(String devName) {
-		if (devName != null) {
-			Logger.logInfo("In destroyDevice");
-			synchronized (knownEmulators) {
-				Logger.logInfo("Got Lock");
-				if (knownEmulators.containsKey(devName)) {
-					ExecHelper.RunProgram("adb -s "+devName+" emu kill", true);
-					if (knownEmulators.get(devName).destroyEmulator()) {
-						Logger.logInfo("Emulator :" + devName
-								+ " destroyed sucessfully");
-					} else {
-						Logger.logInfo("problem occured while destroying the Emulator :"
-								+ devName);
-					}
-					knownEmulators.remove(devName);
-				} else {
-					Logger.logInfo("Unable to find emulator in the knownemulators list");
-				}
-			}
-			releaseDevice(devName);
-		}
-	}
-
-	protected static void startKernelLogMonitoring(String devName) {
-		synchronized (knownEmulators) {
-			if (knownEmulators.containsKey(devName)) {
-				knownEmulators.get(devName).startMonitoring();
-			}
-		}
-	}
-
-	protected static void stopKernelLogMonitoring(String devName) {
-		synchronized (knownEmulators) {
-			if (knownEmulators.containsKey(devName)) {
-				knownEmulators.get(devName).stopMonitoring();
-			}
-		}
-	}
-
-	protected static void cleanKernelLogEntriesS(String devName, String fileName) {
-		synchronized (knownEmulators) {
-			if (knownEmulators.containsKey(devName)) {
-				knownEmulators.get(devName).cleanKernelLogEntries(fileName);
-			}
-		}
-	}
-
-	protected static ArrayList<String> getKernelLogEntries(String devName) {
-		synchronized (knownEmulators) {
-			if (knownEmulators.containsKey(devName)) {
-				knownEmulators.get(devName).getKernelLogEntries();
-			}
-		}
-		return null;
-	}
-
-	protected static boolean addLogCatMonitors(String devName,
-			ArrayList<MonitoringClient> logCatMonitors) {
-		EmulatorInstance emuInstance = null;
-		if (logCatMonitors != null && devName != null) {
-			synchronized (knownEmulators) {
-				if (knownEmulators.containsKey(devName)) {
-					emuInstance = knownEmulators.get(devName);
-				}
-			}
-
-			if (emuInstance != null && emuInstance.getLogCatObserver() != null) {
-				emuInstance.getLogCatObserver().logFileFilters
-						.addAll(logCatMonitors);
-				return true;
-			}
-		}
-		return false;
-	}
-
-	protected static boolean addkernelLogMonitors(String devName,
-			ArrayList<MonitoringClient> kernelMonitors) {
-		EmulatorInstance emuInstance = null;
-		if (kernelMonitors != null && devName != null) {
-			synchronized (knownEmulators) {
-				if (knownEmulators.containsKey(devName)) {
-					emuInstance = knownEmulators.get(devName);
-				}
-			}
-
-			if (emuInstance != null) {
-				emuInstance.addMonitors(kernelMonitors);
-				return true;
-			}
-		}
-		return false;
+	public LogCatObserver getLogCatObserver() {
+		return targetLogCatObserver;
 	}
 
 	/***
@@ -268,8 +151,18 @@ public abstract class ADevice {
 	 * @return true/false depending on whether the pull is sucessfull or not
 	 *         respectively
 	 */
-	public abstract boolean getFileFromDevice(String locationOnDevice,
-			String locationOnDisc);
+	public boolean getFileFromDevice(String locationOnDevice,
+									 String locationOnDisc) {
+		boolean gotFile = false;
+		try {
+			this.androidDevice.pullFile(locationOnDevice, locationOnDisc);
+			gotFile = true;
+		} catch (Exception e) {
+
+		}
+
+		return gotFile;
+	}
 
 	/***
 	 * This methods puts the file from the disc and saves it to the provided
@@ -282,8 +175,17 @@ public abstract class ADevice {
 	 * @return true/false depending on whether the push is sucessfull or not
 	 *         respectively
 	 */
-	public abstract boolean putFileInToDevice(String locationOnDisc,
-			String locationOnDevice);
+	public boolean putFileInToDevice(String locationOnDisc,
+									 String locationOnDevice) {
+		boolean placedFile = false;
+		try {
+			this.androidDevice.pushFile(locationOnDisc, locationOnDevice);
+			placedFile = true;
+		} catch (Exception e) {
+
+		}
+		return placedFile;
+	}
 
 	/***
 	 * This method executes the provided command on device using shell
@@ -294,8 +196,29 @@ public abstract class ADevice {
 	 *            timeout for command to respond
 	 * @return response of the shell command executed
 	 */
-	public abstract ArrayList<String> executeShellCommand(String command,
-			int timeOutInMilliSec);
+	public ArrayList<String> executeShellCommand(String command,
+												 int timeOutInMilliSec) {
+		ArrayList<String> output = null;
+		int retryCount = 4;
+		boolean shellResponsive = true;
+		StringOutputReceiver outputReceiver = new StringOutputReceiver();
+		while (shellResponsive && (retryCount > 0)) {
+			try {
+				this.androidDevice.executeShellCommand(command, outputReceiver,
+						timeOutInMilliSec);
+				break;
+			} catch (ShellCommandUnresponsiveException e) {
+				Logger.logException("ShellCommandUnRespeonsive..will be retried");
+				retryCount--;
+			} catch (Exception e) {
+				// shellResponsive = false;
+				Logger.logException(e);
+				retryCount--;
+			}
+		}
+		output = outputReceiver.output;
+		return output;
+	}
 
 	/***
 	 * This method executes the provided command on device using shell and with
@@ -305,14 +228,18 @@ public abstract class ADevice {
 	 *            command to be executed on device
 	 * @return response of the shell command executed
 	 */
-	public abstract ArrayList<String> executeShellCommand(String command);
+	public ArrayList<String> executeShellCommand(String command) {
+		return executeShellCommand(command, defaultShellCommandTimeOut);
+	}
 
 	/***
 	 * This method returns the device name that this object is handling
 	 * 
 	 * @return human readable device name
 	 */
-	public abstract String getDeviceName();
+	public String getDeviceName() {
+		return this.deviceName;
+	}
 
 	/***
 	 * This method sends SMS to the device with the given number and message
@@ -323,15 +250,20 @@ public abstract class ADevice {
 	 *            The target message that needs to be sent
 	 * @return true on success or false on failure
 	 */
-	public abstract boolean sendSMS(String number, String message);
-
-	/***
-	 * This method is used to clean the location /sdcard this is achieved by
-	 * deleting all the files in the directory
-	 * 
-	 * @return true on success / false on failure
-	 */
-	public abstract boolean cleanSDCard();
+	public boolean sendSMS(String number, String message) {
+		boolean retValue = false;
+		try {
+			int portNo = Integer.parseInt(getDeviceName().substring(
+					getDeviceName().indexOf('-') + 1));
+			DeviceConnection devC = new DeviceConnection(androidDevice, portNo);
+			devC.sendCommand("sms send " + number + " " + message);
+			retValue = true;
+			devC.close();
+		} catch (Exception e) {
+			Logger.logException(getDeviceName() + ":SendSMS:" + e.getMessage());
+		}
+		return retValue;
+	}
 
 	/***
 	 * This method is used to un install the provided app package form the
@@ -341,51 +273,161 @@ public abstract class ADevice {
 	 *            that target package that needs to be un installed
 	 * @return output after un installing the app package from the device
 	 */
-	public abstract String uninstallAppPackage(String targetPackageName);
+	public String uninstallAppPackage(String targetPackageName) {
+		String output = "";
+		int retryCount = 4;
+		boolean shellResponsive = true;
+		while (shellResponsive && (retryCount > 0)) {
+			try {
+				output = this.androidDevice.uninstallPackage(targetPackageName);
+				output = output == null ? "Success" : output;
+				break;
+			} catch (InstallException e) {
+				Logger.logException("InstallException..will be retried");
+				retryCount--;
+			} catch (Exception e) {
+				shellResponsive = false;
+				Logger.logException(e);
+			}
+		}
+
+		return output;
+	}
 
 	/***
 	 * This method is used to create TCP forward from host machine to the device
 	 * 
 	 * @param srcPortNumber
 	 *            src port number of the host
-	 * @param destPortNumber
+	 * @param dstPortNumber
 	 *            dst port number of the device
 	 * @return true on success or false on failure
 	 */
-	public abstract boolean createForward(int srcPortNumber, int destPortNumber);
+	public boolean createForward(int srcPortNumber, int dstPortNumber) {
+		try {
+			this.androidDevice.createForward(srcPortNumber, dstPortNumber);
+			return true;
+		} catch (Exception e) {
+			Logger.logException(e);
+		}
+		return false;
+	}
 
-	/***
-	 * This method free the current device
-	 * 
-	 * @return true/ false depending on whether the operation is sucessfull or
-	 *         not
-	 */
-	public abstract boolean freeDevice();
+	private LogCatObserver getTargetObserver() {
+		return getLogCatObserver();
+	}
 
-	public abstract boolean destroyDevice();
+	public boolean destroyDevice() {
+		synchronized (assignedDevices) {
+			return assignedDevices.remove(deviceName) != null;
+		}
+	}
 
-	public abstract void startLogMonitoring();
+	public void startLogMonitoring() {
+		LogCatObserver targetObserver = getTargetObserver();
+		if (targetObserver != null) {
+			targetObserver.startMonitoring();
+		}
 
-	public abstract void stopLogMonitoring();
+	}
 
-	public abstract void cleanLogEntries(String targetFile);
+	public void stopLogMonitoring() {
+		LogCatObserver targetObserver = getTargetObserver();
+		if (targetObserver != null) {
+			targetObserver.stopMonitoring();
+		}
+	}
 
-	public abstract void startKernelLogMonitoring();
+	public void cleanLogEntries(String fileName) {
+		LogCatObserver targetObserver = getTargetObserver();
+		if (targetObserver != null) {
+			targetObserver.cleanLogEntries(fileName);
+		}
+	}
 
-	public abstract void stopKernelLogMonitoring();
+	public boolean installApk(String apkFile, boolean reinstall) {
+		int retryCount = 4;
+		boolean shellResponsive = true;
+		boolean retVal = false;
+		while (shellResponsive && (retryCount > 0)) {
+			try {
+				retryCount--;
+				String output = this.androidDevice.installPackage(apkFile,
+						reinstall);
+				output = output == null ? "Success" : output;
+				retVal = true;
+				break;
+			} catch (InstallException e) {
+				Logger.logException("InstallException..will be retried");
+			} catch (Exception e) {
+				Logger.logException(e);
+			}
+		}
+		return retVal;
+	}
 
-	public abstract void cleanKernelLogEntries(String targetFile);
+	public DeviceConnection getDeviceConnection() {
+		DeviceConnection retVal = null;
+		try {
+			int portNo = Integer.parseInt(getDeviceName().substring(
+					getDeviceName().indexOf('-') + 1));
+			retVal = new DeviceConnection(androidDevice, portNo);
+		} catch (Exception e) {
+			Logger.logException(getDeviceName() + ":GetDeviceConnection:"
+					+ e.getMessage());
+		}
+		return retVal;
+	}
 
-	public abstract boolean installApk(String apkFile, boolean reinstall);
+	public boolean executeDeviceCommand(String command) {
+		boolean retValue = false;
+		try {
+			int portNo = Integer.parseInt(getDeviceName().substring(
+					getDeviceName().indexOf('-') + 1));
+			DeviceConnection devC = new DeviceConnection(androidDevice, portNo);
+			devC.sendCommand(command);
+			retValue = true;
+			devC.close();
+		} catch (Exception e) {
+			Logger.logException(getDeviceName() + ":executeDeviceCommand:" + e.getMessage());
+		}
+		return retValue;
+	}
 
-	public abstract boolean addLogCatMonitors(
-			ArrayList<MonitoringClient> logCatMonitors);
+	@Override
+	public int hashCode() {
+		return this.deviceName.hashCode();
+	}
 
-	public abstract boolean addKerenelMonitots(
-			ArrayList<MonitoringClient> kernelMonitors);
-	
-	public abstract DeviceConnection getDeviceConnection();
-	
-	public abstract boolean executeDeviceCommand(String command);
+	@Override
+	public boolean equals(Object o) {
+		if (o instanceof ADevice) {
+			ADevice that = (ADevice) o;
+			return this.deviceName.equals(that.getDeviceName());
+		}
+		return false;
+	}
 
+}
+
+class StringOutputReceiver extends MultiLineReceiver {
+
+	ArrayList<String> output = null;
+
+	@Override
+	public boolean isCancelled() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void processNewLines(String[] arg0) {
+		if (output == null) {
+			output = new ArrayList<>();
+		}
+		for (String s : arg0) {
+			output.add(s);
+		}
+
+	}
 }

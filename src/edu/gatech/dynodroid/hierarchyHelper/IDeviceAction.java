@@ -16,20 +16,20 @@ public interface IDeviceAction {
 	 * This method is used to return the monkey command corresponding to the underlying action
 	 * @return command strings
 	 */
-	
-	public abstract ArrayList<String> getMonkeyCommand();
+
+	ArrayList<String> getMonkeyCommand();
 	
 	/***
 	 * The action name of the current action
 	 * @return Name of the action
 	 */
-	public abstract String actionName();
+	String actionName();
 	
 	/***
 	 * This method returns the call back (if any) registered for this particulat device action
 	 * 
 	 * @return method signature of the registered call back
 	 */
-	public abstract String getCallBackName();
+	String getCallBackName();
 
 }

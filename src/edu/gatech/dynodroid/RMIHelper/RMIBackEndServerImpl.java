@@ -12,7 +12,6 @@ import edu.gatech.dynodroid.master.PropertyParser;
 import edu.gatech.dynodroid.master.TestProfile;
 import edu.gatech.dynodroid.rmiRequest.ServerRequestHandler;
 import edu.gatech.dynodroid.rmiRequest.ServerRequestStatus;
-import edu.gatech.dynodroid.rmiRequest.ServerRequestType;
 import edu.gatech.dynodroid.testHarness.WidgetBasedTesting;
 import edu.gatech.dynodroid.utilities.FileUtilities;
 import edu.gatech.dynodroid.utilities.Logger;
@@ -51,10 +50,8 @@ public class RMIBackEndServerImpl extends UnicastRemoteObject implements
 		try {
 			targetUUID = UUID.randomUUID();
 			Logger.logInfo("Received Request:"+targetUUID.toString());
-			Logger.logInfo("FilePath="+filePath+" emailID="+emailID+" fileServer="+fileServer+" requestType="+requestType+" noOfEvents="+noOfEvents);
-			ServerRequestType reqType = ServerRequestType.valueOf(requestType);
-			dbFacade.insertRequest(targetUUID, fileServer,filePath, emailID,
-					reqType.name());
+			Logger.logInfo("FilePath="+filePath+" emailID="+emailID+" fileServer="+fileServer+" noOfEvents="+noOfEvents);
+			dbFacade.insertRequest(targetUUID, fileServer,filePath, emailID);
 			dbFacade.updateRequestStatus(targetUUID, ServerRequestStatus.RECEIVED.name());
 			String appWorkingDir = "/tmp/m3workdir/" + targetUUID.toString();
 			FileUtilities.createDirectory(appWorkingDir);
@@ -75,7 +72,7 @@ public class RMIBackEndServerImpl extends UnicastRemoteObject implements
 				TextLogger newLogger = new TextLogger(logsDir
 						+ "/TotalExecution.log");
 				ServerRequestHandler handler = new ServerRequestHandler(
-						targetTestProfile, dbFacade,newLogger,reqType);
+						targetTestProfile, dbFacade,newLogger);
 				Thread th = new Thread(handler);
 				th.start();			
 
@@ -99,7 +96,6 @@ public class RMIBackEndServerImpl extends UnicastRemoteObject implements
 		newTestProfile.appName = apkFile.getName();
 		newTestProfile.baseAppDir = apkFile.getAbsolutePath();
 		newTestProfile.sdkInstallPath = PropertyParser.sdkInstallPath;
-		newTestProfile.emmaLibPath = PropertyParser.emmaLibPath;
 		newTestProfile.testStrategy = WidgetBasedTesting.widgetBasedTestingStrategy;
 		newTestProfile.maxNoOfWidgets = PropertyParser.maxNoOfWidgets[0];
 		newTestProfile.widgetSelectionStrategy = PropertyParser.widgetSelectionStrategy
@@ -117,10 +113,6 @@ public class RMIBackEndServerImpl extends UnicastRemoteObject implements
 		newTestProfile.responseDelay = PropertyParser.responseDelay;
 		newTestProfile.delayBetweenEvents = PropertyParser.delayBetweenEvents;
 		newTestProfile.verboseLevel = PropertyParser.verboseLevel;
-		newTestProfile.coverageDumpTime = PropertyParser.coverageDumpTime;
-		newTestProfile.instrumetationSetupDir = PropertyParser.instrumentationHelperDir;
-		newTestProfile.coverageSamplingInterval = PropertyParser.coverageSamplingInterval;
-		newTestProfile.isApk = true;
 		newTestProfile.targetEmailAlias = emailID;
 
 		return newTestProfile;

@@ -52,7 +52,7 @@ public class MonkeyBasedActionPerformer extends DeviceActionPerformer {
         this.storeScript = saveScript;
         sleepTime = PropertyParser.responseDelay;
         String deviceName = device.getDeviceName();
-        pyCommand = "monkeyrunner " + 
+        pyCommand = System.getenv("ANDROID_HOME") + "/tools/monkeyrunner " +
             PropertyParser.MonkeyRunnerScript +
             " " +
             deviceName;

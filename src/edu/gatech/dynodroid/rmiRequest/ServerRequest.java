@@ -17,9 +17,8 @@ public class ServerRequest implements IServerRequest {
 	private TextLogger targetLogger = null;
 	private IDBFacade targetDBFacade = null;
 	private static final String TAG = "ServerRequest";
-	private ServerRequestType requestType = ServerRequestType.APK;
 	
-	public ServerRequest(TestProfile tprof,ADevice tDev,TestStrategy tStra,TextLogger profLog,IDBFacade dbFac,ServerRequestType targetType) throws Exception{
+	public ServerRequest(TestProfile tprof,ADevice tDev,TestStrategy tStra,TextLogger profLog,IDBFacade dbFac) throws Exception{
 		if(tprof != null && tDev != null && tStra != null && profLog != null && dbFac != null){
 			
 			this.targetDevice = tDev;
@@ -28,7 +27,6 @@ public class ServerRequest implements IServerRequest {
 			this.requestUUID = this.targetTestProfile.requestUUID;
 			this.targetLogger = profLog;
 			this.targetDBFacade = dbFac;
-			this.requestType = targetType;
 		} else{
 			throw new Exception("Unable to create Server Request,one or more parameters are null");
 		}
@@ -59,11 +57,6 @@ public class ServerRequest implements IServerRequest {
 	@Override
 	public ServerRequestStatus getCurrentStatus() {
 		return this.currentStatus;
-	}
-
-	@Override
-	public ServerRequestType getRequestType() {
-		return requestType;
 	}
 
 }

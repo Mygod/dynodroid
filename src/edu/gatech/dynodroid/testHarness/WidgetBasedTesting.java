@@ -6,13 +6,14 @@ package edu.gatech.dynodroid.testHarness;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import com.android.ddmlib.Client;
 
 import edu.gatech.dynodroid.appHandler.AndroidAppHandler;
 import edu.gatech.dynodroid.appHandler.ApkHandler;
-import edu.gatech.dynodroid.appHandler.AppSrcHandler;
-import edu.gatech.dynodroid.covHandler.CoverageHandler;
+import edu.gatech.dynodroid.clients.BroadcastsRetriever;
+import edu.gatech.dynodroid.clients.NonUiActionsRetriever;
 import edu.gatech.dynodroid.devHandler.ADevice;
 import edu.gatech.dynodroid.hierarchyHelper.DeviceActionPerformer;
 import edu.gatech.dynodroid.hierarchyHelper.DeviceActionPerformerFactory;
@@ -40,17 +41,14 @@ import edu.gatech.dynodroid.utilities.TextLogger;
  */
 public class WidgetBasedTesting extends TestStrategy {
 	private ADevice testDevice;
-	private CoverageHandler coverageHandler;
 	private AndroidAppHandler androidAppHandler;
 	private String appSrcDir;
 	private String workingDir;
 	private int maxNoOfWidgets = 1000;
 	private int maxAppStarts = 100;
 	private long appStartWaitTime = 2000;
-	private long coverageDumpWaitTime = 4000;
 	private long screenRenderingTime = 3000;
 	private int targetAppId = -1;
-	private int coverageSamplingInterval = 100;
 	private WidgetSelectionStrategy selectionStrategy = null;
 	private String runStatsBaseDir = null;
 	private int targetHostPortNumber = 0;
@@ -69,13 +67,10 @@ public class WidgetBasedTesting extends TestStrategy {
 
 	HashMap<Pair<ViewScreen, Pair<ViewElement, IDeviceAction>>, Integer> widgetBlackList;
 
-	public WidgetBasedTesting(ADevice tDev, CoverageHandler handler,
-			AndroidAppHandler appH, HashMap<String, String> properties,
-			int cov_sam) throws Exception {
-		this.coverageSamplingInterval = cov_sam;
+	public WidgetBasedTesting(ADevice tDev,
+			AndroidAppHandler appH, HashMap<String, String> properties) throws Exception {
 		getProperties(properties);
 		this.testDevice = tDev;
-		this.coverageHandler = handler;
 		this.androidAppHandler = appH;
 		widgetBlackList = new HashMap<Pair<ViewScreen, Pair<ViewElement, IDeviceAction>>, Integer>();
 		this.targetDeviceActionPerformer = DeviceActionPerformerFactory
@@ -102,14 +97,12 @@ public class WidgetBasedTesting extends TestStrategy {
 			this.selectionStrategy = StrategyFactory
 					.getWidgetSelectionStrategy(
 							properties.get(selectionStrategyProperty),
-							selStraLog, this.coverageSamplingInterval);
+							selStraLog);
 		}
 
 		try {
 			this.appStartWaitTime = Long.parseLong(properties
 					.get(TestStrategy.appStartUpTimeProperty));
-			this.coverageDumpWaitTime = Long.parseLong(properties
-					.get(TestStrategy.appCoverageDumpTimeProperty));
 			this.maxNoOfWidgets = Integer.parseInt(properties
 					.get(WidgetBasedTesting.maxNoOfWidgetsProperty));
 			this.screenRenderingTime = Long.parseLong(properties
@@ -174,14 +167,12 @@ public class WidgetBasedTesting extends TestStrategy {
 			this.targetDeviceActionPerformer.performAction(new KeyPressAction(4), this.testDevice);
 			Thread.sleep(3000);
 
-			LogMonitoring.addTag(testDevice, "Installing Application:", 0);
 			ArrayList<String> odexBeforeInstall = new ArrayList<String>();
 			odexBeforeInstall = this.testDevice
 					.executeShellCommand("ls /data/dalvik-cache");
 			this.androidAppHandler.uninstallApp();
-			boolean retVal = this.testDevice.cleanSDCard()
-					&& this.androidAppHandler
-							.installApp(AppSrcHandler.instrumentInstall);
+			boolean retVal = this.androidAppHandler
+							.installApp(AndroidAppHandler.instrumentInstall);
 			if (retVal) {
 				this.textLogger.logInfo(this.testDevice.getDeviceName(),
 						"Device Prepare Complete");
@@ -250,7 +241,6 @@ public class WidgetBasedTesting extends TestStrategy {
 					break;
 				}
 			}
-			LogMonitoring.addAppId(testDevice, targetAppId);
 			this.textLogger.logInfo("TargetAppID",
 					Integer.toString(targetAppId));
 		} else {
@@ -265,7 +255,6 @@ public class WidgetBasedTesting extends TestStrategy {
 			boolean ableToStartTheApp = true;
 			ViewScreen startScreen = null;
 			String currBaseDir = null;
-			String coverageFile = null;
 			int noOfCoverages = 1;
 			String textBoxInputPath = (this.androidAppHandler instanceof ApkHandler) ? this.appSrcDir
 					+ ".textBoxInput"
@@ -293,11 +282,10 @@ public class WidgetBasedTesting extends TestStrategy {
 
 				addBlacklistWidget(oldScreen, currentEleExecised);
 
-				addReceiversToSelectionStrategy(
-						this.androidAppHandler.getAndroidManifestParser(),
-						this.selectionStrategy);
-				LogMonitoring.addTag(testDevice, "Starting Application ("
-						+ noOfAppStarts + "):", 0);
+				HashSet<Pair<ViewElement, IDeviceAction>> manifestActions =
+						BroadcastsRetriever.getManifestReceiverActions(
+								this.androidAppHandler.getAndroidManifestParser(),
+								this.selectionStrategy);
 				if (this.androidAppHandler.startAppInstrument()) {
 					Thread.sleep(this.appStartWaitTime);
 
@@ -325,12 +313,10 @@ public class WidgetBasedTesting extends TestStrategy {
 									+ noOfAppStarts + "_Coverage_" + i;
 							FileUtilities.createDirectory(currBaseDir);
 						}*/
-						//coverageFile = currBaseDir + "/coverage.ec";
 						newScreen = targetLayoutExtractor.getCurrentScreen(
 								true, textBoxInputPath);
 						if(i % 5 == 0){
-							this.testDevice
-							.executeShellCommand("am broadcast -a edu.gatech.m3.emma.COLLECT_COVERAGE");
+							// TODO: shall we keep Thread.sleep?
 							Thread.sleep(2000);
 						}
 						if (!selectionStrategy.areScreensSame(oldScreen,
@@ -396,21 +382,18 @@ public class WidgetBasedTesting extends TestStrategy {
 							break;
 						}
 
+						HashSet<Pair<ViewElement, IDeviceAction>> actions = new HashSet<>(manifestActions);
+						actions.addAll(NonUiActionsRetriever.getAllActions(testDevice,
+								androidAppHandler.getAndroidManifestParser().getAppPackage(),
+								textLogger));
 						Pair<ViewElement, IDeviceAction> currElement = selectionStrategy
-								.getNextElementAction(newScreen,
-										currentEleExecised, true);
+								.getNextElementAction(newScreen, actions, currentEleExecised, true);
 						if (currElement == null) {
 							this.textLogger
 									.logWarning(logTag,
 											"No View Element to Execise..Ending Testing cycle");
 							break;
 						}
-
-						// This is to add tag for the logging
-						// so that any events that occur after this will be
-						// notified
-						LogMonitoring.addTag(testDevice,
-								currElement.toString(), i);
 
 						currentEleExecised = currElement;
 						
@@ -426,30 +409,6 @@ public class WidgetBasedTesting extends TestStrategy {
 							}
 						}
 
-						if (selectionStrategy.needDumpCoverage()) {
-							String currCovDir = this.runStatsBaseDir +"/Coverage" + noOfCoverages;
-							noOfCoverages++;
-							FileUtilities.createDirectory(currCovDir);
-							coverageFile = currCovDir +"/coverage.ec";
-							
-							this.textLogger
-									.logInfo(
-											logTag,
-											i
-													+ " Trying to get intermediate coverage");
-							this.androidAppHandler
-									.getIntermediateCoverage(
-											coverageFile,
-											this.coverageDumpWaitTime);
-							
-							this.coverageHandler
-									.setReportDir(currCovDir);
-
-							this.coverageHandler.computeCoverageReport(
-									coverageFile,
-									CoverageHandler.coverageTypeAll,
-									this.appSrcDir + "/src");
-						}
 						if (!widgetBlackList
 								.containsKey(new Pair<ViewScreen, Pair<ViewElement, IDeviceAction>>(
 										newScreen, currentEleExecised))) {
@@ -515,24 +474,12 @@ public class WidgetBasedTesting extends TestStrategy {
 
 			currBaseDir = this.runStatsBaseDir + "/FinalCoverageStats";
 			FileUtilities.createDirectory(currBaseDir);
-			coverageFile = currBaseDir + "/coverage.ec";
 			if (!this.androidAppHandler.exitFromApp()) {
 				this.textLogger.logError(logTag,
 						"Problem occured while trying to exit form the App");
 			} else {
 				this.textLogger.logError(logTag, "App Exited Sucessfully");
 			}
-			if (!this.androidAppHandler.getFinalCoverage(coverageFile,
-					this.coverageDumpWaitTime)) {
-				this.textLogger
-						.logError(logTag,
-								"Problem occured while trying to get the coverage file from the device");
-			} else {
-				this.textLogger.logError(logTag, "Got final coverage dump");
-			}
-			this.coverageHandler.setReportDir(currBaseDir);
-			this.coverageHandler.computeCoverageReport(coverageFile,
-					CoverageHandler.coverageTypeAll, this.appSrcDir + "/src");
 
 			// Get the stats from trace log
 			if (!computeStatsFromTraceLog()) {
@@ -723,7 +670,6 @@ public class WidgetBasedTesting extends TestStrategy {
 	/***
 	 * 
 	 * @param currentWindow
-	 * @param workingDir
 	 * @return
 	 */
 	private int normalizeApp(ViewScreen currentWindow) {
@@ -814,8 +760,7 @@ public class WidgetBasedTesting extends TestStrategy {
 		} else {
 			Logger.logInfo("Sucessfully cleaned Log Monitoring");
 		}
-		return this.testDevice.cleanSDCard()
-				&& this.androidAppHandler.uninstallApp();
+		return this.androidAppHandler.uninstallApp();
 	}
 
 }

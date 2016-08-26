@@ -5,20 +5,16 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 
-import edu.gatech.dynodroid.clients.MonitoringClient;
 import edu.gatech.dynodroid.utilities.FileUtilities;
 import edu.gatech.dynodroid.utilities.Logger;
 
 public class LogCatObserver {
 	public String deviceName;
-	public boolean monitor = false;
 	public LogCatObserverThread targetThread;
-	public ArrayList<MonitoringClient> logFileFilters = new ArrayList<MonitoringClient>();
 
 	public LogCatObserver(String devName) {
 		this.deviceName = devName;
 		this.targetThread = new LogCatObserverThread(deviceName);
-		this.logFileFilters = this.targetThread.logFileFilters;
 		Thread newThread = new Thread(this.targetThread);
 		newThread.start();
 	}
@@ -31,20 +27,8 @@ public class LogCatObserver {
 		this.targetThread.stopMonitoring();
 	}
 
-	public ArrayList<String> getLogEntries() {
-		return this.targetThread.getLogEntries();
-	}
-
 	public void cleanLogEntries(String fileName) {
 		this.targetThread.cleanLogEntries(fileName);
-	}
-
-	public String getDeviceName() {
-		return this.deviceName;
-	}
-
-	public void quitMonitoring() {
-		this.targetThread.quitMonitoring = true;
 	}
 
 }
@@ -52,9 +36,8 @@ public class LogCatObserver {
 class LogCatObserverThread implements Runnable {
 
 	public boolean monitor = false;
-	private Object sync = new Object();
+	private final Object sync = new Object();
 	private ArrayList<String> logEntries = new ArrayList<String>();
-	public ArrayList<MonitoringClient> logFileFilters = new ArrayList<MonitoringClient>();
 	public boolean isMontoringPossible = false;
 	public boolean quitMonitoring = false;
 
@@ -90,11 +73,9 @@ class LogCatObserverThread implements Runnable {
 				while (!(this.quitMonitoring)
 						&& ((tempStr = inStream.readLine()) != null)) {
 					// Logger.logInfo(tempStr);
-					if (!isLineConsumed(tempStr)) {
-						synchronized (sync) {
-							if (this.monitor) {
-								logEntries.add(tempStr);
-							}
+					synchronized (sync) {
+						if (this.monitor) {
+							logEntries.add(tempStr);
 						}
 					}
 				}
@@ -109,35 +90,7 @@ class LogCatObserverThread implements Runnable {
 
 	}
 
-	private boolean isLineConsumed(String targetLine) {
-		boolean hasConsumed = false;
-		for (MonitoringClient m : logFileFilters) {
-			try {
-				// Yes, we don't discriminate between monitors
-				// consumption of log entry
-				// Consumption by one client doesn't affect other clients
-				// say : EqualOppurtunityEmployer Pattern :P
-				hasConsumed = m.consume(targetLine) || hasConsumed;
-			} catch (Exception e) {
-				Logger.logException(e);
-			}
-		}
-
-		return hasConsumed;
-	}
-
-	public ArrayList<String> getLogEntries() {
-		synchronized (sync) {
-			ArrayList<String> logEn = new ArrayList<String>();
-			logEn.addAll(logEntries);
-			return logEn;
-		}
-	}
-
 	public boolean cleanLogEntries(String fileName) {
-		for (MonitoringClient m : logFileFilters) {
-			m.cleanMonitoringInfo();
-		}
 		synchronized (sync) {
 			try {
 				if (fileName != null) {
@@ -159,15 +112,9 @@ class LogCatObserverThread implements Runnable {
 		synchronized (sync) {
 			this.monitor = true;
 		}
-		for (MonitoringClient m : logFileFilters) {
-			m.startMonitoring();
-		}
 	}
 
 	public void stopMonitoring() {
-		for (MonitoringClient m : logFileFilters) {
-			m.stopMonitoring();
-		}
 		synchronized (sync) {
 			this.monitor = false;
 		}

@@ -19,17 +19,14 @@ public class ServerDBAccess implements IDBFacade, Serializable {
 
 	@Override
 	public boolean insertRequest(UUID reqID, String fileServer,String payloadFileName,
-			String mailID, String type) {
-		String queryFormat = "insert into requests(requestid,typeid,emailid,fileserver,filepath) values(\'%s\',%d,\'%s\',\'%s\',\'%s\')";
+			String mailID) {
+		String queryFormat = "insert into requests(requestid,emailid,fileserver,filepath) values(\'%s\',%d,\'%s\',\'%s\',\'%s\')";
 		if (reqID != null && payloadFileName != null && mailID != null) {
 			// TODO: check for sql injection
-			int typeID = getRequestTypeID(type);
-			if (typeID != -1) {
-				String actualQuery = String.format(queryFormat,
-						reqID.toString(), typeID, mailID, fileServer,payloadFileName);
-				int colAffected = this.dbHelper.executeUpdateQuery(actualQuery);
-				return colAffected > 0;
-			}
+			String actualQuery = String.format(queryFormat,
+					reqID.toString(), mailID, fileServer,payloadFileName);
+			int colAffected = this.dbHelper.executeUpdateQuery(actualQuery);
+			return colAffected > 0;
 
 		}
 		return false;
@@ -102,25 +99,6 @@ public class ServerDBAccess implements IDBFacade, Serializable {
 			return colAffected > 0;
 		}
 		return false;
-	}
-
-	public int getRequestTypeID(String typeName) {
-		int retVal = -1;
-		String queryFormat = "select id from request_type where name = \'%s\'";
-		if (typeName != null) {
-			// TODO: check for sql injection
-			String actualQuery = String.format(queryFormat, typeName);
-			ResultSet rs = this.dbHelper.executeResultSetQuery(actualQuery);
-			if (rs != null) {
-				try {
-					retVal = rs.getInt(1);
-				} catch (Exception e) {
-					// TODO: Log exception
-					retVal = -1;
-				}
-			}
-		}
-		return retVal;
 	}
 	
 	public int getRequestStatusID(String statusName) {

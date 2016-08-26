@@ -25,22 +25,14 @@ public class PropertyParser {
 	public static long responseDelay = 3000;
 	public static long appStartUpDelay = 5000;
 	public static String sdkInstallPath = null;
-	public static int coverageDumpTime = 4000;
 	public static String baseAppDir = "";
 	public static int[] maxNoOfWidgets = new int[1];
-	public static String emmaLibPath = null;
-	public static int coverageSamplingInterval = 100;
 	public static ArrayList<String> testStrategy = new ArrayList<String>();
 	public static ArrayList<String> widgetSelectionStrategy = new ArrayList<String>();
-	public static String instrumentationHelperDir = null;
 	public static String kernelModulesLocation = "";
 	public static String mailNotificationRecipents = null;
-	public static String createEmuScript = null;
 	public static String avdLocation = null;
 	public static String apkToolLocation = null;
-	public static int maxNoOfEmulators = 16;
-	public static String customSystemImg = null;
-	public static String customRamDiskImg = null;
 	public static String remoteServerApkSrcPath = "";
 	public static String remoteServerResultPath = "";
 	public static String apkServerName = "";
@@ -50,13 +42,8 @@ public class PropertyParser {
 	public static String resultPublicServer = "";
 	public static String resultDownloadablePath = "";
 	public static String scpAccessUserName = "";
-	public static String resultEmailAlias = null;
 	public static String rmiDBConnectionString = null;
-	public static String postProcessingScript = null;
-	public static String webServerForResults = null;
 	public static String MonkeyRunnerScript = null;
-	public static int androidTarget = 3;
-	public static boolean isManualMode = false;
 	public static String toolLoc = null;
 
 	public static boolean parsePropertiesFile(String propertiesFile) {
@@ -82,18 +69,6 @@ public class PropertyParser {
 
 			sdkInstallPath = prop.getProperty("sdk_install");
 			if (sdkInstallPath == null) {
-				displayPropertiesUsage();
-				return false;
-			}
-
-			instrumentationHelperDir = prop.getProperty("instru_setup");
-			if (instrumentationHelperDir == null) {
-				displayPropertiesUsage();
-				return false;
-			}
-
-			kernelModulesLocation = prop.getProperty("ker_mod");
-			if (kernelModulesLocation == null) {
 				displayPropertiesUsage();
 				return false;
 			}
@@ -134,10 +109,6 @@ public class PropertyParser {
 				return false;
 			}
 
-			postProcessingScript = prop.getProperty("post_proc_scr");
-
-			webServerForResults = prop.getProperty("web_srv_results");
-
 			resultPublicServer = prop.getProperty("res_pub_srv");
 			if (resultPublicServer == null) {
 				displayPropertiesUsage();
@@ -151,12 +122,6 @@ public class PropertyParser {
 			}
 			remoteServerResultPath = prop.getProperty("res_rem_path");
 			if (remoteServerResultPath == null) {
-				displayPropertiesUsage();
-				return false;
-			}
-
-			createEmuScript = prop.getProperty("create_emu");
-			if (createEmuScript == null) {
 				displayPropertiesUsage();
 				return false;
 			}
@@ -185,20 +150,6 @@ public class PropertyParser {
 				return false;
 			}
 
-			customSystemImg = prop.getProperty("system_image");
-			if (customSystemImg == null) {
-				displayPropertiesUsage();
-				return false;
-			}
-
-			customRamDiskImg = prop.getProperty("ramdisk_image");
-			if (customRamDiskImg == null) {
-				displayPropertiesUsage();
-				return false;
-			}
-
-			emmaLibPath = (new File(sdkInstallPath, "tools/lib/emma.jar"))
-					.getAbsolutePath();
 			String temp;
 
 			if (prop.getProperty("max_widgets") != null) {
@@ -217,14 +168,6 @@ public class PropertyParser {
 				responseDelay = Integer.parseInt(temp);
 			}
 
-			temp = prop.getProperty("manual_mode");
-			if (temp != null) {
-				try {
-					isManualMode = Integer.parseInt(temp) == 1?true:false;
-				} catch (Exception e) {
-				}
-			}
-
 			temp = prop.getProperty("verbose_level");
 			if (temp != null) {
 				verboseLevel = Integer.parseInt(temp);
@@ -233,21 +176,6 @@ public class PropertyParser {
 			temp = prop.getProperty("tch_pct");
 			if (temp != null) {
 				touchPercentage = Integer.parseInt(temp);
-			}
-
-			temp = prop.getProperty("android_target");
-			if (temp != null) {
-				androidTarget = Integer.parseInt(temp);
-			}
-
-			temp = prop.getProperty("max_emu");
-			if (temp != null) {
-				maxNoOfEmulators = Integer.parseInt(temp);
-			}
-
-			temp = prop.getProperty("cov_sam");
-			if (temp != null) {
-				coverageSamplingInterval = Integer.parseInt(temp);
 			}
 
 			temp = prop.getProperty("sml_pct");
@@ -309,9 +237,6 @@ public class PropertyParser {
 				return false;
 			}
 
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -329,12 +254,8 @@ public class PropertyParser {
 								+ "\t[s]instru_setup=<Absolute path to the directory where all the necessary files required for instrumentation are present(will be autoconfigured by deployment script)>\n"
 								+ "\twork_dir=<Absolute path to the directory where all the logs and run time stats of the application(s) will be stored>\n"
 								+ "\tsdk_install=<The directory in which android sdk is installed>\n"
-								+ "\tker_mod=<The directory containing the kernel module that needs to be installed before testing (an ideal place for any kernel level monitoring)>\n"
-								+ "\tcreate_emu=<The absolute path to the autogenerated script for creating emulator for testing>\n"
 								+ "\tavd_store=<Absolute oath to the directory where all the avds created for testing will be stored>\n"
 								+ "\ttools_dir=<The directory containing all the tools required by dynodroid>\n"
-								+ "\tsystem_image=<Absolute path to the system.img that needs to be used for emulator creation>\n"
-								+ "\tramdisk_image=<Absolute path to the ramdisk.img that needs to be used for emulator creation>\n"
 								+ "\tmonkeyrunner_script=<Absolute Path to the monkey runner script that is used to generate the input events>\n"
 								+ "\t[a]apktool_loc=<Absoulte Path to the apktool.jar file which will be used to extract the provided apk for AndroidManifest.xml>\n"								
 								+ "\tcomplete_notify=<Email-id to be notified after the test run is complete>\n"
@@ -344,11 +265,8 @@ public class PropertyParser {
 
 		System.out.println(mandatoryOptions);
 		System.out.println("Optional Properties:");
-		
-		System.out.println("\t[s][defVal=100]cov_sam=<Number of events after which the coverage report needs to be generated>");
+
 		System.out.println("\t[defVal=0]manual_mode=<If you want the emulator to run in foreground (allowed values 0 or 1)>");
-		System.out.println("\t[defVal=16]max_emu=<Maximum number of emulatores that can be created simultaneosly>");
-		System.out.println("\t[s][defVal=3]android_target=<The target number for Gingerbread (run command: android list targets to know the target number)>");
 		System.out
 		.println("\t[defVal=RandomMonkeyTesting]test_strategy=<Comma Separated Values of Strategies to be used for Testing the provided Apps..all strategies will be applied to all apps>");
 		System.out.println("\t\tAvailble Strategies:"+RandomMonkeyTesting.randomTestingStrategy+" (Plain monkey will be used) ,"+WidgetBasedTesting.widgetBasedTestingStrategy+ " (Event abstracton will be used)");

@@ -9,8 +9,6 @@ import java.util.Collections;
 import java.util.HashMap;
 
 import edu.gatech.dynodroid.appHandler.AndroidAppHandler;
-import edu.gatech.dynodroid.appHandler.AppSrcHandler;
-import edu.gatech.dynodroid.covHandler.CoverageHandler;
 import edu.gatech.dynodroid.devHandler.ADevice;
 import edu.gatech.dynodroid.logMonitoring.LogMonitoring;
 import edu.gatech.dynodroid.master.PropertyParser;
@@ -35,14 +33,10 @@ public class RandomMonkeyTesting extends TestStrategy {
 	private int verboseL = 3;
 	private long appStartWaitTime = 2000;
 	private int targetAppId = -1;
-	private long coverageDumpWaitTime = 4000;
-	private String coverageStoreDir = "";
 	private String odexFilePath = null;
 	private Logger textLogger;
 	private ADevice testDevice;
-	private CoverageHandler coverageHandler;
 	private AndroidAppHandler androidAppHandler;
-	private String appSrcDir;
 	private String workingDir;
 	private String logTag = "RMT_";
 	public static final String randomTestingStrategy = "RandomMonkeyTesting";
@@ -53,20 +47,12 @@ public class RandomMonkeyTesting extends TestStrategy {
 	public static final String DelayBetweenEvents = "delay";
 	public static final String VerboseLevelProperty = "verbose_level";
 	public static final String NumberOfEventsProperty = "max_events";
-	public int coverageSamplingIntervel = 0;
 
-	public RandomMonkeyTesting(ADevice tDev, CoverageHandler handler,
+	public RandomMonkeyTesting(ADevice tDev,
 			AndroidAppHandler appH, HashMap<String, String> properties) {
 		this.testDevice = tDev;
-		this.coverageHandler = handler;
 		this.androidAppHandler = appH;
 		getProperties(properties);
-	}
-	
-	public RandomMonkeyTesting(ADevice tDev, CoverageHandler handler,
-			AndroidAppHandler appH, HashMap<String, String> properties,int cov_sample) {
-		this(tDev,handler,appH,properties);
-		this.coverageSamplingIntervel = cov_sample;
 	}
 
 	private boolean getProperties(HashMap<String, String> properties) {
@@ -78,9 +64,6 @@ public class RandomMonkeyTesting extends TestStrategy {
 		if (retVal) {
 			this.workingDir = properties.get(TestStrategy.workDirPropertyName);
 			FileUtilities.createDirectory(this.workingDir);
-			this.appSrcDir = properties.get(TestStrategy.appSrcPropertyName);
-			this.coverageStoreDir = this.workingDir + "/RunStats";
-			this.coverageHandler.setReportDir(this.coverageStoreDir);
 		}
 
 		try {
@@ -100,8 +83,6 @@ public class RandomMonkeyTesting extends TestStrategy {
 					.get(VerboseLevelProperty));
 			this.appStartWaitTime = Long.parseLong(properties
 					.get(TestStrategy.appStartUpTimeProperty));
-			this.coverageDumpWaitTime = Long.parseLong(properties
-					.get(TestStrategy.appCoverageDumpTimeProperty));
 		} catch (Exception e) {
 			Logger.logException("RMT:Problem occured while parsing the provided properties,"
 					+ e.getMessage());
@@ -143,9 +124,8 @@ public class RandomMonkeyTesting extends TestStrategy {
 					.executeShellCommand("ls /data/dalvik-cache");
 
 			this.androidAppHandler.uninstallApp();
-			boolean retVal = this.testDevice.cleanSDCard()
-					&& this.androidAppHandler
-							.installApp(AppSrcHandler.instrumentInstall);
+			boolean retVal = this.androidAppHandler
+							.installApp(AndroidAppHandler.instrumentInstall);
 			ArrayList<String> odexAfterInstall = this.testDevice
 					.executeShellCommand("ls /data/dalvik-cache");
 
@@ -182,7 +162,6 @@ public class RandomMonkeyTesting extends TestStrategy {
 							break;
 						}
 					}
-					LogMonitoring.addAppId(testDevice, targetAppId);
 					this.textLogger.logInfo("TargetAppID",
 							Integer.toString(targetAppId));
 				} else {
@@ -244,18 +223,6 @@ public class RandomMonkeyTesting extends TestStrategy {
 				options += " -p "
 						+ this.androidAppHandler.getAndroidManifestParser()
 								.getAppPackage();
-				
-				if(this.androidAppHandler instanceof AppSrcHandler){
-					options += " -m "
-							+ this.androidAppHandler.getAndroidManifestParser()
-									.getAppPackage()
-							+ "/"
-							+ this.androidAppHandler.getAndroidManifestParser()
-									.getInstrumentation();
-					options += " --getcover " 
-							+this.coverageSamplingIntervel;
-				
-				}
 						
 				options += " " + Long.toString(this.numberOfEvents);
 				// invoke the monkey based on the above percentages
@@ -275,73 +242,6 @@ public class RandomMonkeyTesting extends TestStrategy {
 				}
 				LogMonitoring.cleanMonitoring(
 						testDevice, workingDir);
-				ArrayList<String> coverageECFiles = this.testDevice
-						.executeShellCommand("ls /mnt/sdcard/coverage*.ec");
-				if (coverageECFiles != null) {
-					textLogger.logInfo(this.testDevice.getDeviceName(), "No of coverage file on device:"+coverageECFiles.size());
-					Collections.sort(coverageECFiles,new CustomComparer());
-					int i = 1;
-					for (String coverageFile : coverageECFiles) {
-						if(coverageFile != null && coverageFile.trim().length() > 0){
-							String currentCoverageDir = this.coverageStoreDir
-									+ "/Coverage" + i;
-							FileUtilities.createDirectory(currentCoverageDir);
-							String targetFile = currentCoverageDir + "/coverage.ec";
-							textLogger.logInfo(this.testDevice.getDeviceName(), "copying file:"+coverageFile+" to "+targetFile);
-							this.testDevice.getFileFromDevice(coverageFile,
-									targetFile);
-							this.coverageHandler.setReportDir(currentCoverageDir);
-							isSucess = (this.coverageHandler.computeCoverageReport(
-									targetFile, CoverageHandler.coverageTypeAll,
-									this.appSrcDir + "/src") != null);
-							if (isSucess) {
-								textLogger.logInfo(this.testDevice.getDeviceName(),
-										"Sucessfully Computed Coverage Report Number:"
-												+ i + " On device file:"
-												+ coverageFile
-												+ " on machine file:" + targetFile);
-							} else {
-								textLogger
-										.logError(
-												this.testDevice.getDeviceName(),
-												"Problem occured while trying to get coverage numbers for Coverage Report Number:"
-														+ i
-														+ " On device file:"
-														+ coverageFile
-														+ " on machine file:"
-														+ targetFile);
-							}
-							i++;
-						}
-					}
-				}
-				else{
-					textLogger.logError(this.testDevice.getDeviceName(), "No intermediate coverag report files found on the emulator");
-				}
-
-				textLogger.logInfo(this.testDevice.getDeviceName(),
-						"Trying to get final coverage file from device");
-				this.coverageStoreDir = this.coverageStoreDir
-						+ "/FinalCoverageStats";
-				FileUtilities.createDirectory(this.coverageStoreDir);
-				String coverageECFile = this.coverageStoreDir + "/coverage.ec";
-
-				if (this.androidAppHandler.getFinalCoverage(coverageECFile,
-						this.coverageDumpWaitTime)) {
-					textLogger.logInfo(this.testDevice.getDeviceName(),
-							"Got Coverage file from device");
-					this.coverageHandler.setReportDir(this.coverageStoreDir);
-					isSucess = (this.coverageHandler.computeCoverageReport(
-							coverageECFile, CoverageHandler.coverageTypeAll,
-							this.appSrcDir + "/src") != null);
-				}
-				if (isSucess) {
-					textLogger.logInfo(this.testDevice.getDeviceName(),
-							"Sucessfully Computed Coverage Report");
-				} else {
-					textLogger.logInfo(this.testDevice.getDeviceName(),
-							"Unable to compute Coverage Report");
-				}
 			}
 		} catch (Exception e) {
 			this.textLogger.logException(this.testDevice.getDeviceName(), e);
@@ -397,8 +297,7 @@ public class RandomMonkeyTesting extends TestStrategy {
 		} else {
 			Logger.logInfo("Sucessfully cleaned Log Monitoring");
 		}
-		return this.testDevice.cleanSDCard()
-				&& this.androidAppHandler.uninstallApp();
+		return this.androidAppHandler.uninstallApp();
 	}
 
 }

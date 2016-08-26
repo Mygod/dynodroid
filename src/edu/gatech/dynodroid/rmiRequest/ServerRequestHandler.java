@@ -8,13 +8,7 @@ import org.apache.commons.io.FileUtils;
 import edu.gatech.dynodroid.DBAccess.IDBFacade;
 import edu.gatech.dynodroid.appHandler.AndroidAppHandler;
 import edu.gatech.dynodroid.appHandler.ApkHandler;
-import edu.gatech.dynodroid.appHandler.AppInstrumenter;
-import edu.gatech.dynodroid.appHandler.AppSrcHandler;
-import edu.gatech.dynodroid.covHandler.CoverageHandler;
-import edu.gatech.dynodroid.covHandler.DummyCovHandler;
-import edu.gatech.dynodroid.covHandler.EmmaCoverageHandler;
 import edu.gatech.dynodroid.devHandler.ADevice;
-import edu.gatech.dynodroid.devHandler.DeviceEmulator;
 import edu.gatech.dynodroid.hierarchyHelper.LayoutExtractorFactory;
 import edu.gatech.dynodroid.hierarchyHelper.ViewServerLayoutExtractor;
 import edu.gatech.dynodroid.logMonitoring.LogMonitoring;
@@ -36,15 +30,13 @@ public class ServerRequestHandler implements Runnable {
 	private IDBFacade dbFacade = null;
 	private TextLogger targetLogger = null;
 	private static final String TAG = "RequestHandler";
-	private ServerRequestType targetType = ServerRequestType.APK;
 
 	public ServerRequestHandler(TestProfile tarProf, IDBFacade tarDBF,
-			TextLogger logger, ServerRequestType type) throws Exception {
+			TextLogger logger) throws Exception {
 		if (tarProf != null && tarDBF != null && logger != null) {
 			this.targetTestProfile = tarProf;
 			this.dbFacade = tarDBF;
 			this.targetLogger = logger;
-			this.targetType = type;
 		} else {
 			throw new Exception(
 					"Unable to create ServerRequestHandler, one or more parameters are invalid");
@@ -58,7 +50,7 @@ public class ServerRequestHandler implements Runnable {
 		ADevice targetDevice = null;
 		if (isInputValid()) {
 			try {
-				targetDevice = DeviceEmulator.getFreeEmulator();
+				targetDevice = ADevice.getFreeDevice();
 				if (targetDevice != null) {
 					dbFacade.updateRequestStatus(targetTestProfile.requestUUID,
 							ServerRequestStatus.EMULATOR_CREATED.name());
@@ -66,47 +58,21 @@ public class ServerRequestHandler implements Runnable {
 					this.targetLogger.logInfo("RequestHandler",
 							"Emulator Created!!");
 					AndroidAppHandler appHandler = null;
-					CoverageHandler covHandler = null;
-					if (this.targetType == ServerRequestType.APK) {
-						appHandler = new ApkHandler(
-								targetTestProfile.baseAppDir, targetDevice,
-								targetTestProfile.instrumetationSetupDir,
-								targetTestProfile.baseWorkingDir
-										+ "/AppHandler");
-						covHandler = new DummyCovHandler();
-					} else {
-
-						// Here baseAppDir is the zip file containing the entire
-						// app
-						// 1.Unzip the directory
-						// 2.run android update project
-						// 3.build the app
-						// 4.Use AppSrc Handler
-						appHandler = new AppSrcHandler(
-								targetTestProfile.baseAppDir, targetDevice,
-								targetTestProfile.instrumetationSetupDir,
-								targetTestProfile.baseWorkingDir
-										+ "/AppHandler");
-						
-						covHandler = new EmmaCoverageHandler(
-								targetTestProfile.baseAppDir + "/coverage.em",
-								targetTestProfile.baseWorkingDir + "/coverageHandler",
-								targetTestProfile.emmaLibPath);
-					}
+					appHandler = new ApkHandler(
+							targetTestProfile.baseAppDir, targetDevice,
+							targetTestProfile.baseWorkingDir
+									+ "/AppHandler");
 
 
 					WidgetBasedTesting testStr = new WidgetBasedTesting(
 							targetDevice,
-							covHandler,
 							appHandler,
 							getPropertiesMap(
 									targetTestProfile,
-									WidgetBasedTesting.widgetBasedTestingStrategy),
-							targetTestProfile.coverageSamplingInterval);
+									WidgetBasedTesting.widgetBasedTestingStrategy));
 
 					req = new ServerRequest(targetTestProfile, targetDevice,
-							testStr, this.targetLogger, this.dbFacade,
-							this.targetType);
+							testStr, this.targetLogger, this.dbFacade);
 
 					req.updateStatus(ServerRequestStatus.TEST_SCHEDULED);
 
@@ -144,8 +110,6 @@ public class ServerRequestHandler implements Runnable {
 
 					// Clean up
 
-					LogMonitoring.releaseLogs(targetDevice);
-
 					LayoutExtractorFactory.deleteCache(targetDevice);
 
 					// Here we destroy the device so that we run a fresh
@@ -157,12 +121,6 @@ public class ServerRequestHandler implements Runnable {
 				}
 
 				this.targetLogger.endLog();
-
-				String monitoringLogsBaseFolder = targetTestProfile.baseWorkingDir
-						+ "/TestStrategy/MonitoringLogs/";
-
-				// TODO: post processing the logs to create a xml file
-				postProcessing(monitoringLogsBaseFolder);
 
 				// Copy the logs to the target result server
 				if (!FileUtilities.scpTo(targetTestProfile.baseLogDir,
@@ -270,29 +228,10 @@ public class ServerRequestHandler implements Runnable {
 		return targetDir;
 	}
 
-	private void postProcessing(String monitoringLogsBaseDir) {
-		if (monitoringLogsBaseDir != null
-				&& PropertyParser.postProcessingScript != null
-				&& PropertyParser.webServerForResults != null) {
-			try {
-				String command = "python "
-						+ PropertyParser.postProcessingScript + " "
-						+ monitoringLogsBaseDir + " "
-						+ PropertyParser.webServerForResults;
-				Logger.logInfo("Running Post Processing Command:" + command);
-				ExecHelper.RunProgram(command, true);
-			} catch (Exception e) {
-				Logger.logException(e);
-			}
-		}
-	}
-
 	private HashMap<String, String> getPropertiesMap(
 			TestProfile targetTestProfile, String stra) {
 		HashMap<String, String> retVal = new HashMap<String, String>();
 		if (stra.equals(RandomMonkeyTesting.randomTestingStrategy)) {
-			retVal.put(TestStrategy.appCoverageDumpTimeProperty,
-					Integer.toString(targetTestProfile.coverageDumpTime));
 			retVal.put(TestStrategy.appStartUpTimeProperty,
 					Long.toString(targetTestProfile.responseDelay));
 			retVal.put(TestStrategy.workDirPropertyName,
@@ -317,8 +256,6 @@ public class ServerRequestHandler implements Runnable {
 					Long.toString(targetTestProfile.delayBetweenEvents));
 		}
 		if (stra.equals(WidgetBasedTesting.widgetBasedTestingStrategy)) {
-			retVal.put(TestStrategy.appCoverageDumpTimeProperty,
-					Integer.toString(targetTestProfile.coverageDumpTime));
 			retVal.put(TestStrategy.appStartUpTimeProperty,
 					Long.toString(targetTestProfile.responseDelay));
 			retVal.put(TestStrategy.workDirPropertyName,
@@ -340,41 +277,17 @@ public class ServerRequestHandler implements Runnable {
 	private boolean isInputValid() {
 		boolean retVal = false;
 		try {
-			if (this.targetType == ServerRequestType.SOURCES) {
-				
-				String destDir = targetTestProfile.baseAppDir +"_extracted";				
-				String targetExtractedAppDir = extractAppZip(targetTestProfile.baseAppDir, destDir);
-				if(targetExtractedAppDir != null){
-					targetTestProfile.baseAppDir = targetExtractedAppDir;
-					ExecHelper.RunProgram("android update project --target "+PropertyParser.androidTarget+" --path "+targetExtractedAppDir, true);
-					try{
-						AppInstrumenter appInstrumenter = new AppInstrumenter(targetExtractedAppDir, PropertyParser.instrumentationHelperDir);
-						if(appInstrumenter.doInstrumentation()){
-							String output = ExecHelper.RunProgram("ant -f "
-									+ targetExtractedAppDir + "/build.xml clean", true);
-							output = ExecHelper.RunProgram("ant -f "
-									+ targetExtractedAppDir + "/build.xml "
-									+ "instrument", true);
-							retVal = output.contains("BUILD SUCCESSFUL");
-						}
-					} catch(Exception e){
-						Logger.logException(e);
-					}
-				}
-			}
-			if (this.targetType == ServerRequestType.APK) {
-				File dummy = FileUtils.getTempDirectory();
-				String actualDummy = dummy + "/" + System.nanoTime();
-				FileUtilities.createDirectory(actualDummy);
-				ExecHelper.RunProgram("java -jar "
-						+ PropertyParser.apkToolLocation + " -q d -f "
-						+ targetTestProfile.baseAppDir + " " + actualDummy,
-						true);
+			File dummy = FileUtils.getTempDirectory();
+			String actualDummy = dummy + "/" + System.nanoTime();
+			FileUtilities.createDirectory(actualDummy);
+			ExecHelper.RunProgram("java -jar "
+							+ PropertyParser.apkToolLocation + " -q d -f "
+							+ targetTestProfile.baseAppDir + " " + actualDummy,
+					true);
 
-				retVal = (new File(actualDummy + "/AndroidManifest.xml"))
-						.exists();
-				FileUtils.deleteDirectory(new File(actualDummy));
-			}
+			retVal = (new File(actualDummy + "/AndroidManifest.xml"))
+					.exists();
+			FileUtils.deleteDirectory(new File(actualDummy));
 		} catch (Exception e) {
 			Logger.logException(e);
 		}

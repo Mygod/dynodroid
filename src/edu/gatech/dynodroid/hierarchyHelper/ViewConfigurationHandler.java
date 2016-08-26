@@ -13,7 +13,7 @@ public class ViewConfigurationHandler {
 	 * 
 	 * @param v
 	 *            the target view element for which we want input text
-	 * @param configFile
+	 * @param viewHandlingConfig
 	 *            config file containing information about view handling
 	 * @return target string of the text we need to input to the view
 	 */
@@ -28,11 +28,11 @@ public class ViewConfigurationHandler {
 				String[] configLineParts = strLine.split(":");
 				//This is just to ensure that the config file has entries in correct format
 				if(configLineParts.length > 1){
-					int targetViewID = Integer.parseInt(configLineParts[0]);
-					if(targetViewID == 0){
+					String targetViewID = configLineParts[0];
+					if(targetViewID.isEmpty()){
 						targetText = joinString(configLineParts, ':',1);
 					}
-					if(targetViewID == v.uniqueViewID){
+					if(targetViewID.equals(v.id)){
 						targetText = joinString(configLineParts, ':',1);
 						break;
 					}

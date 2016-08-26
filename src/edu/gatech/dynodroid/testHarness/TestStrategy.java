@@ -3,14 +3,7 @@
  */
 package edu.gatech.dynodroid.testHarness;
 
-import edu.gatech.dynodroid.appHandler.AndroidManifestParser;
-import edu.gatech.dynodroid.appHandler.BroadCastReceiver;
-import edu.gatech.dynodroid.appHandler.IntentFilter;
-import edu.gatech.dynodroid.deviceEvent.BroadCastAction;
-import edu.gatech.dynodroid.hierarchyHelper.IDeviceAction;
-import edu.gatech.dynodroid.hierarchyHelper.ViewElement;
 import edu.gatech.dynodroid.utilities.Logger;
-import edu.gatech.dynodroid.utilities.Pair;
 
 /**
  * @author machiry
@@ -51,44 +44,4 @@ public abstract class TestStrategy {
 	public static final String workDirPropertyName = "workDir";
 	public static final String appSrcPropertyName = "appSrc";
 	public static final String appStartUpTimeProperty = "app_start_wait";
-	public static final String appCoverageDumpTimeProperty = "app_cov_dump_wait";
-
-	protected void addReceiversToSelectionStrategy(
-			AndroidManifestParser manifest,
-			WidgetSelectionStrategy targetStretegy) {
-		if (manifest != null && targetStretegy != null) {
-			for (BroadCastReceiver r : manifest.getAllBroadcastReceivers()) {
-				String targetComponentName = manifest.getAppPackage() + "/"
-						+ r.receiverComponentName;
-				
-				//This Receiver is what we added to get the coverage statistics, no need to fire this
-				if (!r.receiverComponentName
-						.contains(".EmmaInstrument.SMSInstrumentedReceiver")) {
-					for (IntentFilter f : r.intentFilters) {
-						for (String action : f.intentActions) {
-							BroadCastAction targetAction = BroadCastAction
-									.getBroadCastEvent(targetComponentName,
-											action, f.intentCategory);
-							if (targetAction == null) {
-								this.textLogger.logError(
-										"RECEIVER_ADD_PROBLEM",
-										"Unable to get broadcast event for:"
-												+ action);
-							} else {
-								this.textLogger.logInfo("RECEIVER_ADD_SUCESS",
-										"Sucessfully added receiver for:"
-												+ action);
-								targetStretegy
-										.addNonUiDeviceAction(new Pair<ViewElement, IDeviceAction>(
-												null,
-												(IDeviceAction) targetAction));
-							}
-
-						}
-					}
-				}
-			}
-		}
-	}
-
 }

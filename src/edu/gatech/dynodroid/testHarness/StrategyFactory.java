@@ -21,31 +21,31 @@ public class StrategyFactory {
 	public static final String randomBased = "RandomBased";
 	public static final String randomBiasBased = "RandomBiasBased";
 	
-	public static WidgetSelectionStrategy getWidgetSelectionStrategy(String strategyName,String workingDir,int covSamplingInterval){
+	public static WidgetSelectionStrategy getWidgetSelectionStrategy(String strategyName,String workingDir){
 		if(strategyName.equals(widgetGraph)){
 			try{
-			return new GraphBasedSelectionStrategy(workingDir,covSamplingInterval);
+			return new GraphBasedSelectionStrategy(workingDir);
 			} catch(Exception e){
 				Logger.logException(e);
 			}
 		}
 		if(strategyName.equals(frequencyBased)){
 			try{
-			return new WidgetFrequencyBasedSelectionStrategy(workingDir,covSamplingInterval);
+			return new WidgetFrequencyBasedSelectionStrategy(workingDir);
 			} catch(Exception e){
 				Logger.logException(e);
 			}
 		}
 		if(strategyName.equals(randomBased)){
 			try{
-			return new WidgetRandomBasedSelectionStrategy(workingDir,covSamplingInterval);
+			return new WidgetRandomBasedSelectionStrategy(workingDir);
 			} catch(Exception e){
 				Logger.logException(e);
 			}
 		}
                 if(strategyName.equals(randomBiasBased)){
 			try{
-			return new WidgetRandomBiasBasedSelectionStrategy(workingDir,covSamplingInterval);
+			return new WidgetRandomBiasBasedSelectionStrategy(workingDir);
 			} catch(Exception e){
 				Logger.logException(e);
 			}

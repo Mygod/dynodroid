@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 
-import edu.gatech.dynodroid.deviceEvent.BroadCastAction;
+import edu.gatech.dynodroid.deviceEvent.BroadcastIntent;
 import edu.gatech.dynodroid.hierarchyHelper.IDeviceAction;
 import edu.gatech.dynodroid.hierarchyHelper.TextInputEvent;
 import edu.gatech.dynodroid.hierarchyHelper.ViewElement;
@@ -34,7 +34,6 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
     private static final String logPrefix = "RandomBiasBased";
     private Random randomNumber;
     private int totalNumberOfActions = 0;
-    private int coverageGranularity = 100;
 
     HashMap<Pair<ViewElement, IDeviceAction>, Integer> costMap = new HashMap<Pair<ViewElement, IDeviceAction>, Integer>();
     HashMap<ViewScreen, HashMap<Pair<ViewElement, IDeviceAction>, Integer>> screenBiasMap = 
@@ -42,12 +41,10 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
     HashMap<ViewScreen, HashMap<Pair<ViewElement, IDeviceAction>, Integer>> widgetCountMap = 
         new HashMap<ViewScreen, HashMap<Pair<ViewElement, IDeviceAction>, Integer>>();
     HashMap<Pair<ViewElement, IDeviceAction>, Integer> currentBiasMap = new HashMap<Pair<ViewElement, IDeviceAction>, Integer>();
-    HashSet<Pair<ViewElement, IDeviceAction>> nonUIEvents = new HashSet<Pair<ViewElement, IDeviceAction>>();
     HashSet<Pair<ViewElement, IDeviceAction>> populatedTextFields = new HashSet<Pair<ViewElement, IDeviceAction>>();
 
     public WidgetRandomBiasBasedSelectionStrategy
-        (String workingDir,
-         int samplingInterval) throws Exception {
+        (String workingDir) throws Exception {
 
         this.currWorkingDir = workingDir;
         FileUtilities.createDirectory(currWorkingDir);
@@ -56,14 +53,11 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
         this.textBoxLogger = new TextLogger(this.currWorkingDir
                                          + "/textBoxOutput.txt");
         this.randomNumber = new Random();
-        if (samplingInterval > 0) {
-            this.coverageGranularity = samplingInterval;
-        }
     }
 
     @Override
 	public Pair<ViewElement, IDeviceAction> getNextElementAction
-        (ViewScreen currScreen,
+        (ViewScreen currScreen, HashSet<Pair<ViewElement, IDeviceAction>> nonUIActions,
          Pair<ViewElement, IDeviceAction> lastPerformedAction,
          boolean resultOfLastOperation) {
 
@@ -77,7 +71,7 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
         if(currScreen!=null && widgetCountMap.get(this.currentScreen) == null) {
             widgetCountMap.put(this.currentScreen, new HashMap<Pair<ViewElement, IDeviceAction>, Integer>());
         }
-        ArrayList<Pair<ViewElement, IDeviceAction>> actions = getAllActionsOfCost(inScreenCost);
+        ArrayList<Pair<ViewElement, IDeviceAction>> actions = getAllActionsOfCost(inScreenCost, nonUIActions);
         setBias(actions, lastPerformedAction);
         Pair<ViewElement, IDeviceAction> retEle = getNextAction(actions);
 
@@ -99,7 +93,7 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
     }
 
     private synchronized ArrayList<Pair<ViewElement, IDeviceAction>> getAllActionsOfCost
-        (Integer targetCost) {
+        (Integer targetCost, HashSet<Pair<ViewElement, IDeviceAction>> nonUIActions) {
 
         ArrayList<Pair<ViewElement, IDeviceAction>> retActions = new ArrayList<Pair<ViewElement, IDeviceAction>>();
         for (Pair<ViewElement, IDeviceAction> p : costMap.keySet()) {
@@ -107,9 +101,9 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
                 retActions.add(p);
             }
         }
-        // These nonUIevents can be triggered any time
-        synchronized (nonUIEvents) {
-            retActions.addAll(nonUIEvents);
+        // These nonUIActions can be triggered any time
+        if (nonUIActions != null) {
+            retActions.addAll(nonUIActions);
         }
         return retActions;
     }
@@ -154,9 +148,6 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
             ArrayList<Pair<ViewElement, IDeviceAction>> allAction = targetScreen
                 .getAllPossibleActions();
             for (Pair<ViewElement, IDeviceAction> p : allAction) {
-                if (costMap.containsKey(p)) {
-                    costMap.remove(p);
-                }
                 costMap.put(p, newCost);
             }
         }
@@ -185,7 +176,7 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
                 IDeviceAction devAction = action.getSecond();
                 if(devAction instanceof TextInputEvent) { 
                     biasMap.put(action, -1);
-                } else if(devAction instanceof BroadCastAction) {
+                } else if(devAction instanceof BroadcastIntent) {
                     biasMap.put(action, 2);
                 } else {
                     biasMap.put(action, 1);
@@ -269,11 +260,6 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
     }
 
     @Override
-	public boolean needDumpCoverage() {
-        return ((this.totalNumberOfActions % this.coverageGranularity) == 0);
-    }
-
-    @Override
 	public void cleanUp() {
         this.textLogger.logInfo(logPrefix, "WIDGET RANDOM BIAS STRATEGY STATISTICS");
 
@@ -298,41 +284,6 @@ public class WidgetRandomBiasBasedSelectionStrategy extends WidgetSelectionStrat
         this.textLogger.logInfo(logPrefix, "END WIDGET COST");
 
         this.textLogger.endLog();
-    }
-
-    @Override
-	public boolean needFreshDirectory() {
-        return needDumpCoverage();
-    }
-
-    @Override
-	public void addNonUiDeviceAction(Pair<ViewElement, IDeviceAction> action) {
-        if (action != null) {
-            synchronized (nonUIEvents) {
-                this.nonUIEvents.add(action);
-            }
-        }
-    }
-
-    @Override
-	public void removeNonUiDeviceAction(Pair<ViewElement, IDeviceAction> action) {
-        if (action != null) {
-            synchronized (nonUIEvents) {
-                this.nonUIEvents.remove(action);
-            }
-        }
-    }
-
-    public boolean reStartStrategy() {
-        try {
-            synchronized (nonUIEvents) {
-                nonUIEvents.clear();
-            }
-            return true;
-        } catch (Exception e) {
-            this.textLogger.logException(logPrefix, e);
-        }
-        return false;
     }
 
 }

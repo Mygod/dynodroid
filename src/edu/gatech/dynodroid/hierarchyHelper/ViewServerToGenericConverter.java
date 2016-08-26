@@ -1,10 +1,9 @@
 package edu.gatech.dynodroid.hierarchyHelper;
 
+import edu.gatech.dynodroid.devHandler.ADevice;
+
 import java.io.File;
 import java.util.ArrayList;
-
-import edu.gatech.dynodroid.devHandler.DeviceEmulator;
-import edu.gatech.dynodroid.master.PropertyParser;
 
 /***
  * This class converts the objects returned by ViewServerInteraction layer to a
@@ -215,16 +214,16 @@ public class ViewServerToGenericConverter {
 
 	private static boolean isDiemensionValid(ViewNode v) {
 		if (v.width > 0 && v.height > 0) {
-			return (v.realLeft + v.width) <= DeviceEmulator.maxEmulatorWidth
-					&& (v.realTop + v.height) <= DeviceEmulator.maxEmulatorHeight;
+			return (v.realLeft + v.width) <= ADevice.maxEmulatorWidth
+					&& (v.realTop + v.height) <= ADevice.maxEmulatorHeight;
 		}
 		return false;
 	}
 
 	private static boolean isStartValid(ViewNode v) {
-		return v.realLeft >= 0 && v.realLeft < DeviceEmulator.maxEmulatorWidth
+		return v.realLeft >= 0 && v.realLeft < ADevice.maxEmulatorWidth
 				&& v.realTop >= 0
-				&& v.realTop < DeviceEmulator.maxEmulatorHeight;
+				&& v.realTop < ADevice.maxEmulatorHeight;
 	}
 
 }

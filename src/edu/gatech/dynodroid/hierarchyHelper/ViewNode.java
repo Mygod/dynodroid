@@ -50,7 +50,6 @@ public class ViewNode {
 	public double drawTime;
 	public boolean canAcceptGestures = false;
 	public String callBackName;
-	public int uniqueViewID=-1;
 	public boolean m3Clickable;
 	public boolean isEnabled = true;
 	public boolean isLongClickable;
@@ -198,7 +197,6 @@ public class ViewNode {
 		this.paddingBottom = (this.namedProperties
 				.containsKey("mPaddingBottom") ? getInt("mPaddingBottom", 0)
 				: getInt("padding:mPaddingBottom", 0));
-		this.uniqueViewID = getInt("M3:m3ID()",-1);
 
 		this.marginLeft = (this.namedProperties
 				.containsKey("layout_leftMargin") ? getInt("layout_leftMargin",
@@ -237,8 +235,8 @@ public class ViewNode {
 				&& (this.marginTop != -2147483648) && (this.marginBottom != -2147483648));
 		
 		this.appScale = getFloat("M3:m3getAppScale()", 1.0f);
-		   this.realLeft = getInt("M3:getXM3()", 0);
-		   this.realTop = getInt("M3:getYM3()", 0);
+		   this.realLeft = parent == null ? left : parent.realLeft - parent.scrollX + left;
+		   this.realTop = parent == null ? top : parent.realTop - parent.scrollY + top;
 		   this.onClickCallBackFound = getBoolean("M3:hasOnClickRegistered()", false);
 		    this.callBackName = (this.namedProperties.containsKey("M3:getCallBackClass()")?((Property)this.namedProperties.get("M3:getCallBackClass()")).value:"");
 		    this.m3Clickable = this.isClickable;

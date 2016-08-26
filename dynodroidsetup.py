@@ -66,27 +66,6 @@ def copyFile(srcFile,destFile):
     shutil.copyfile(srcFile,destFile)
     return 0
 
-#generate create emu script
-def generateCreateEmuScript(setupfolder):
-    freshAvdPath = setupfolder + "/freshavd/emu.avd"
-    newAvdPath = "\""+os.path.expanduser("~/.android/avd")+"/$1.avd\""
-    newAvdPathWQ = os.path.expanduser("~/.android/avd")+"/$1.avd"
-    newIniPath = "\""+os.path.expanduser("~/.android/avd")+"/$1.ini\""
-    f = open(setupfolder+"/createemu.sh", 'w')
-    f.write("#!/bin/sh\n")
-    f.write("mkdir -p "+newAvdPath+"\n")
-    f.write("echo \"target=android-10\" > "+newIniPath+"\n")
-    f.write("echo \"path="+newAvdPathWQ+"\" >> "+newIniPath+"\n")
-    f.write("cp "+freshAvdPath+"/* "+newAvdPath+"/\n")
-    f.close()
-    os.chmod(setupfolder+"/createemu.sh",stat.S_IRWXU|stat.S_IRWXG|stat.S_IRWXO)
-    return setupfolder+"/createemu.sh"
-
-def getGingerBreadTarget():
-	p = subprocess.Popen('android list targets | grep ^id.*android-10.*$ | cut -d\' \' -f2',shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out, err = p.communicate()
-	return out.strip()
-
 
 #Main Code
 print " ****  *     * |\    |   ****         ****    ****    ****   *****   ****  \n"
@@ -96,10 +75,10 @@ print "|    *    |    |   \ | *      *      |    *  | /    *       *  |    |    
 print "|    *    |    |    \|  *    *       |    *  | \     *     *   |    |    * \n"
 print " ****     *    |     |   ****         ****   |  \      ****  *****   ****  \n"
 checkParams(sys.argv)   
-sdkInstallPath = os.environ['SDK_INSTALL']
+sdkInstallPath = os.environ['ANDROID_HOME']
 
 if sdkInstallPath is None:
-    print "You need to set SDK_INSTALL environment variable"
+    print "You need to set ANDROID_HOME environment variable"
     sys.exit(-4)
     
 #copy m3setup
@@ -128,28 +107,19 @@ if(copyFile(svnDir+buildXmlPath,destDir+buildXmlPath) != 0):
     sys.exit(-3)
 
 
-createEmuScript = generateCreateEmuScript(destDir+setupRelPath)
 avdPath = os.path.expanduser("~/.android/avd")
 #generate m3.properties
 f = open(destDir+"/"+propertiesFileName, 'w')
 f.write("work_dir="+destDir+"/workingDir\n")
 f.write("sdk_install="+sdkInstallPath+"\n")
 f.write("app_dir="+destDir+"/apps\n")
-f.write("instru_setup="+destDir+setupRelPath+"/instrumentation\n")
 f.write("test_strategy=WidgetBasedTesting\n")
 f.write("sel_stra=RandomBiasBased\n")
 f.write("max_widgets=1000\n")
-f.write("ker_mod="+destDir+setupRelPath+"/kernelfiles\n")
-f.write("cov_sam=100\n")
-f.write("create_emu="+createEmuScript+"\n")
 f.write("avd_store="+avdPath+"\n")
 f.write("event_count=100,1000\n")
 f.write("apktool_loc="+destDir+"/tools/apktool/apktool.jar\n")
 f.write("tools_dir="+destDir+"/tools/\n")
-f.write("manual_mode=1\n")
-f.write("max_emu=16\n")
-f.write("system_image="+destDir+setupRelPath+"/customimage/system.img\n")
-f.write("ramdisk_image="+destDir+setupRelPath+"/customimage/ramdisk.img\n")
 f.write("monkeyrunner_script="+destDir+setupRelPath+"/monkeyrunner/monkeyrunner.py\n")
 f.write("complete_notify=someone@example.com\n")
 f.write("report_email_user=reportSourceUserName@gmail.com\n")
@@ -169,29 +139,20 @@ f.write("res_dwn=/pth/to/folder/in/res_srv/where/results/need/to/be/stored/for/p
 f.write("res_rem_path=/pth/to/folder/in/res_srv/where/complete/results/need/to/be/stored\n")
 f.write("apk_rem_path=/pth/to/app File or folder/in/apk_srv/where/apps/need/to/be/copied/from\n")
 
-#target for which the apps will be built
-f.write("android_target="+getGingerBreadTarget()+"\n")
-
-#These are the parameters for results post processing
-f.write("post_proc_scr="+destDir+setupRelPath+"/resultspostprocessing/parser.py\n")
-f.write("web_srv_results=http://weburl.containing.stylesheet\n")
-
 #This the the user name used to do scp
 f.write("scp_user_name=usename_need_to_do_scp")
-os.makedirs(destDir+"/apps")
+try:
+    os.makedirs(destDir+"/apps")
+except OSError:
+    pass
 print "Sucess: Deploying Dynodroid to the target folder\n"
 print "\t"+propertiesFileName+" have been created\n"
 print "\nTHINGS TO DO BEFORE YOU RUN Dynodroid\n"
 print "\t1)Copy the apps that needs to be tested to the folder:",destDir+"/apps\n"
 print "\t2)[Optional] Modify the required TestStratgey,SelectionStrategy and number of events\n"
 print "\t3)[Optional] Add the text required in to textBoxInput files under the src folder of the app\n"
-print "\t4)[Optional] If you want the emulator to run in background then set manual_mode=0 in dynodroid.properties\n"
+print "\t4)Start up emulators and/or connect devices\n"
 print "\nNote:All Logs will be created in folder:",destDir+"/workingDir\n"
 print "\n\nAfter you do all above : Browse to the folder:",destDir," and run : ant clean,ant compile,ant run\n"
 print "\n\nWhile its running you probably want to do something else as it takes a bit of time\n"
 print "\n\n\tEnjoy Using Dynodroid\n"
-
-
-
-
-

@@ -1,6 +1,3 @@
-/**
- * 
- */
 package edu.gatech.dynodroid.testHarness.WidgetRandomSelection;
 
 import java.util.ArrayList;
@@ -26,36 +23,31 @@ public class WidgetRandomBasedSelectionStrategy extends WidgetSelectionStrategy 
 	private TextLogger textLogger;
 	HashMap<Pair<ViewElement, IDeviceAction>, Integer> costMap = new HashMap<Pair<ViewElement, IDeviceAction>, Integer>();
 	HashMap<Pair<ViewElement, IDeviceAction>, Integer> frequencyMap = new HashMap<Pair<ViewElement, IDeviceAction>, Integer>();
-	HashSet<Pair<ViewElement, IDeviceAction>> nonUIEvents = new HashSet<Pair<ViewElement, IDeviceAction>>();
 	private static final Integer inScreenCost = 0;
 	private static final Integer offScreenCost = -1;
 	private static final String logPrefix = "RandomBased";
 	private Random randomNumber;
 	private int totalNumberOfActions = 0;
-	private int coverageGranularity = 100;
 
-	public WidgetRandomBasedSelectionStrategy(String workingDir,
-			int samplingInterval) throws Exception {
+	public WidgetRandomBasedSelectionStrategy(String workingDir) throws Exception {
 		this.currWorkingDir = workingDir;
 		FileUtilities.createDirectory(currWorkingDir);
 		this.textLogger = new TextLogger(this.currWorkingDir
 				+ "/WidgetRandomBasedSelection.log");
 		this.randomNumber = new Random();
-		if (samplingInterval > 0) {
-			this.coverageGranularity = samplingInterval;
-		}
 	}
 
 	@Override
 	public Pair<ViewElement, IDeviceAction> getNextElementAction(
 			ViewScreen currScreen,
+			HashSet<Pair<ViewElement, IDeviceAction>> nonUIActions,
 			Pair<ViewElement, IDeviceAction> lastPerformedAction,
 			boolean resultOfLastOperation) {
 		if (resultOfLastOperation && lastPerformedAction != null) {
 			incrementFrequency(lastPerformedAction);
 			totalNumberOfActions++;
 		}
-		Pair<ViewElement, IDeviceAction> retEle = getRandomAction(getAllActionsOfCost(inScreenCost));
+		Pair<ViewElement, IDeviceAction> retEle = getRandomAction(getAllActionsOfCost(inScreenCost, nonUIActions));
 		this.textLogger.logInfo(logPrefix, "Returning Next Device Action as:"
 				+ (retEle == null ? "NULL" : retEle.toString()));
 		return retEle;
@@ -72,16 +64,16 @@ public class WidgetRandomBasedSelectionStrategy extends WidgetSelectionStrategy 
 	}
 
 	private synchronized ArrayList<Pair<ViewElement, IDeviceAction>> getAllActionsOfCost(
-			Integer targetCost) {
+			Integer targetCost, HashSet<Pair<ViewElement, IDeviceAction>> nonUIActions) {
 		ArrayList<Pair<ViewElement, IDeviceAction>> retActions = new ArrayList<Pair<ViewElement, IDeviceAction>>();
 		for (Pair<ViewElement, IDeviceAction> p : costMap.keySet()) {
 			if (costMap.get(p).equals(targetCost)) {
 				retActions.add(p);
 			}
 		}
-		// These nonUIevents can be triggered any time
-		synchronized (nonUIEvents) {
-			retActions.addAll(nonUIEvents);
+		// These nonUIActions can be triggered any time
+		if (nonUIActions != null) {
+			retActions.addAll(nonUIActions);
 		}
 		return retActions;
 	}
@@ -104,9 +96,6 @@ public class WidgetRandomBasedSelectionStrategy extends WidgetSelectionStrategy 
 			ArrayList<Pair<ViewElement, IDeviceAction>> allAction = targetScreen
 					.getAllPossibleActions();
 			for (Pair<ViewElement, IDeviceAction> p : allAction) {
-				if (costMap.containsKey(p)) {
-					costMap.remove(p);
-				}
 				costMap.put(p, newCost);
 			}
 		}
@@ -140,11 +129,6 @@ public class WidgetRandomBasedSelectionStrategy extends WidgetSelectionStrategy 
 	}
 
 	@Override
-	public boolean needDumpCoverage() {
-		return ((this.totalNumberOfActions % this.coverageGranularity) == 0);
-	}
-
-	@Override
 	public void cleanUp() {
 		this.textLogger.logInfo(logPrefix, "WIDGET RANDOM STRATEGY DUMP");
 		this.textLogger.logInfo(logPrefix, "WIDGET COUNT DUMP");
@@ -158,41 +142,6 @@ public class WidgetRandomBasedSelectionStrategy extends WidgetSelectionStrategy 
 					+ " Cost:" + costMap.get(p));
 		}
 		this.textLogger.endLog();
-	}
-
-	@Override
-	public boolean needFreshDirectory() {
-		return needDumpCoverage();
-	}
-
-	@Override
-	public void addNonUiDeviceAction(Pair<ViewElement, IDeviceAction> action) {
-		if (action != null) {
-			synchronized (nonUIEvents) {
-				this.nonUIEvents.add(action);
-			}
-		}
-	}
-
-	@Override
-	public void removeNonUiDeviceAction(Pair<ViewElement, IDeviceAction> action) {
-		if (action != null) {
-			synchronized (nonUIEvents) {
-				this.nonUIEvents.remove(action);
-			}
-		}
-	}
-
-	public boolean reStartStrategy() {
-		try {
-			synchronized (nonUIEvents) {
-				nonUIEvents.clear();
-			}
-			return true;
-		} catch (Exception e) {
-			this.textLogger.logException(logPrefix, e);
-		}
-		return false;
 	}
 
 }
